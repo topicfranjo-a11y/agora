@@ -1,0 +1,4 @@
+3.	streamlit
+4.	plotly
+5.	openai
+6.	psycopg2-binary
