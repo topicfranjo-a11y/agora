@@ -11,7 +11,18 @@ st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️",
 
 # Podaci se povlače iz tajnih postavki servera, a ne iz koda
 try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    from google import genai
+import streamlit as st
+
+client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
+# Primjer poziva modela u vašoj funkciji za analizu:
+response = client.models.generate_content(
+    model='gemini-2.5-flash',
+    contents='Vaš upit ili tekst za analizu'
+)
+print(response.text)
+
 except Exception:
     st.error("Kreirajte 'OPENAI_API_KEY' unutar Streamlit Secrets / Environment Variables.")
 
