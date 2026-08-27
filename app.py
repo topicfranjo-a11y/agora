@@ -1,44 +1,42 @@
 ﻿import streamlit as st
-import psycopg2  # Zamjena za sqlite3 (koristi se za PostgreSQL na serveru)
+import psycopg2  # Za PostgreSQL na serveru
 import plotly.graph_objects as go
 import json
 from openai import OpenAI
 from datetime import datetime
 import os
-
-import streamlit as st
 from google import genai
 
-client = genai.Client()
-
-response = client.models.generate_content(
-    model="gemini-3.6-flash",  # <--- Promijenite ovo
-    contents="Vaš upit ovdje"
-)
-print(response.text)
-
-
-# 1. Konfiguracija stranice (Mora biti prva Streamlit naredba)
+# 1. Konfiguracija stranice (Mora biti PRVA Streamlit naredba)
 st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️", layout="wide")
 
-# 2. Inicijalizacija Gemini klijenta (koristi ključ iz Secrets)
-client = genai.Client(api_key=st.secrets["OPENAI_API_KEY"]) 
+st.title("🏛️ Agora Web — Protokol Uma")
+
+# 2. Inicijalizacija klijenta koristeći ispravan ključ iz Secrets
+# Napomena: Ako koristite OpenAI za druge dijelove aplikacije, dodajte i openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+try:
+    # Google GenAI SDK automatski traži "GEMINI_API_KEY" u Streamlit Secrets ako ostavite prazne zagrade
+    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"]) 
+except Exception as e:
+    st.error("Problem s učitavanjem API ključa.")
+    st.info("Provjerite jeste li postavili 'GEMINI_API_KEY' unutar Streamlit Secrets.")
 
 # 3. AI Analiza unutar sigurnog try-except bloka
 try:
-    # Poziv besplatnog Google Gemini modela
+    # Poziv novog, podržanog modela
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model="gemini-3.6-flash",  # Popravljen model na najnoviju verziju
         contents="Vaš tekst ili upit za analizu ovdje"
     )
     ai_rezultat = response.text
     
-    # Ovdje možete prikazati rezultat korisniku na ekranu
+    # Prikaz rezultata korisniku na ekranu
+    st.subheader("💡 Rezultat AI Analize")
     st.write(ai_rezultat)
 
 except Exception as e:
     st.error(f"Pogreška prilikom AI analize: {e}")
-    st.info("Provjerite jeste li ispravno postavili 'OPENAI_API_KEY' unutar Streamlit Secrets.")
+    st.info("Provjerite koristi li vaša aplikacija ispravan model i valjan API ključ.")
     ai_rezultat = "Analiza nije uspjela zbog tehničke pogreške."
 
 
