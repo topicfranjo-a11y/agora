@@ -166,11 +166,21 @@ with col1:
     analiziraj_gumb = st.button("Skeniraj moj um ✨", use_container_width=True)
 
 # 5. Logika i raščlanjivanje AI odgovora
+import time
+import streamlit as st
+from google.genai import errors  # Važno za točno prepoznavanje 429 pogrešaka
+
+# Pretpostavka je da su klijenti već ispravno definirani na vrhu aplikacije:
+# client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+# openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
 if analiziraj_gumb and user_input:
     with col2:
         with st.spinner("Čuvar Agore analizira vašu misao..."):
+            pun_izlaz = None
+            
+            # --- POKUŠAJ 1: Primarni model (Google Gemini 3.6 Flash) ---
             try:
-                # Gemini koristi config umjesto temperature i sustavske upute unutar parametara
                 response = client.models.generate_content(
                     model="gemini-3.6-flash",
                     contents=user_input,
@@ -178,28 +188,52 @@ if analiziraj_gumb and user_input:
                         "system_instruction": SYSTEM_PROMPT
                     }
                 )
-                
                 pun_izlaz = response.text
-                dijelovi = pun_izlaz.split("### [METRIKA]")
-                st.session_state.ai_refleksija = dijelovi[0]
-
+                st.toast("Analiza uspješno izvršena putem Gemini modela.", icon="🚀")
                 
-                if len(dijelovi) > 1:
+            except errors.APIError as e:
+                # Ako je problem u iscrpljenoj kvoti (429), idemo na pričuvnu opciju
+                if e.code == 429:
+                    st.warning("⏱️ Gemini kvota je privremeno popunjena. Aktiviram pričuvni model...")
+                    
+                    # --- POKUŠAJ 2: Pričuvni model (OpenAI gpt-4o-mini) ---
                     try:
-                        metrika_json = json.loads(dijelovi[1].strip())
-                        st.session_state.metrika = metrika_json
-                    except Exception:
-                        st.session_state.metrika = {"analitika": 5, "empatija": 5, "sinteza": 5}
-                
-                if "OTKLJUČANO" in st.session_state.ai_refleksija:
-                    st.session_state.status = "OTKLJUČANO"
-                    st.session_state.pročišćeni_tekst = user_input
+                        openai_response = openai_client.chat.completions.create(
+                            model="gpt-4o-mini",
+                            messages=[
+                                {"role": "system", "content": SYSTEM_PROMPT},
+                                {"role": "user", "content": user_input}
+                            ],
+                            temperature=0.3
+                        )
+                        pun_izlaz = openai_response.choices[0].message.content
+                        st.toast("Gemini nedostupan. Analiza izvršena putem OpenAI modela.", icon="🔄")
+                        
+                    except Exception as openai_err:
+                        st.error(f"Ni pričuvni OpenAI model nije uspio: {openai_err}")
                 else:
-                    st.session_state.status = "ZAKLJUČANO"
-                    st.session_state.pročišćeni_tekst = ""
+                    # Neka druga Google API pogreška (npr. neispravan ključ)
+                    st.error(f"Google GenAI pogreška ({e.code}): {e.message}")
                     
             except Exception as e:
-                st.error(f"Pogreška prilikom AI analize: {e}")
+                st.error(f"Neočekivana pogreška prilikom pozivanja Gemini modela: {e}")
+
+            # --- OBRADA I RAŠČLANJIVANJE REZULTATA ---
+            if pun_izlaz:
+                try:
+                    # Raščlanjivanje teksta prema vašem markeru
+                    dijelovi = pun_izlaz.split("### [METRIKA]")
+                    st.session_state.ai_refleksija = dijelovi
+                    
+                    # Prikaz prvog dijela teksta (refleksije) korisniku
+                    st.subheader("🏛️ Refleksija Čuvara")
+                    st.write(dijelovi[0])
+                    
+                except Exception as parse_err:
+                    st.error(f"Pogreška prilikom obrade AI odgovora: {parse_err}")
+            else:
+                st.session_state.ai_refleksija = None
+                st.error("Analiza nije uspjela zbog tehničke pogreške na svim dostupnim AI servisima.")
 
 with col2:
     if st.session_state.ai_refleksija:
