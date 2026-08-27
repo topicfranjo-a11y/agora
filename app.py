@@ -10,9 +10,8 @@ import os
 st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️", layout="wide")
 
 # Podaci se povlače iz tajnih postavki servera, a ne iz koda
-try:
-    from google import genai
-    import streamlit as st
+from google import genai
+import streamlit as st
 
 # Inicijalizacija Gemini klijenta (koristi ključ iz Secrets)
 client = genai.Client(api_key=st.secrets["OPENAI_API_KEY"]) 
