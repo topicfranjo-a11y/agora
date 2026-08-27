@@ -120,15 +120,17 @@ def dohvati_ili_kreiraj_korisnika(ip_adresa):
         cursor.execute("SELECT pseudonim FROM korisnici WHERE ip_adresa = %s", (ip_adresa,))
         rezultat = cursor.fetchone()
         
-        if rezultat:
+        if resultado:
             pseudonim = rezultat[0]
         else:
             kratki_ip = ip_adresa.split(".")[-1] if "." in ip_adresa else "X"
             pseudonim = f"Građanin_{kratki_ip}_{int(time.time()) % 1000}"
             vrijeme = datetime.now().strftime("%d.%m.%Y.")
+            
+            # POPRAVLJENO: Uklonjena riječ Grid= i ostavljena samo čist varijabla vrijeme
             cursor.execute(
                 "INSERT INTO korisnici (ip_adresa, pseudonim, datum_registracije) VALUES (%s, %s, %s)",
-                (ip_adresa, pseudonim, Grid=vrijeme)
+                (ip_adresa, pseudonim, vrijeme)
             )
             conn.commit()
             st.toast(f"🔑 Kreiran privremeni profil: {pseudonim}")
@@ -138,6 +140,7 @@ def dohvati_ili_kreiraj_korisnika(ip_adresa):
         return pseudonim
     except Exception:
         return "Gost_Agore"
+
 
 def azuriraj_pseudonim(ip_adresa, novi_pseudonim):
     try:
