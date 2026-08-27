@@ -12,6 +12,7 @@ st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️",
 # Podaci se povlače iz tajnih postavki servera, a ne iz koda
 from google import genai
 import streamlit as st
+
     try:
         # Poziv besplatnog Google Gemini modela
         response = client.models.generate_content(
