@@ -240,13 +240,13 @@ def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
 inicijaliziraj_bazu()
 
 # ==============================================================================
-# 6. FUNKCIJE ZA PLOTLY VIZUALIZACIJE (Popravljena sintaksa)
+# 6. FUNKCIJE ZA PLOTLY VIZUALIZACIJE (Siguran ispis bez sintaksnih grešaka)
 # ==============================================================================
 def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
     kategorije = ['Analitički um (Logika)', 'Empatijski um (Razumijevanje)', 'Sintetički um (Mostovi)']
     vrijednosti = [analitika, empatija, sinteza]
     
-    # Zatvaranje petlje grafikona ponavljanjem prve točke
+    # Zatvaranje petlje grafikona dodavanjem prve točke na kraj niza
     kategorije.append(kategorije[0])
     vrijednosti.append(vrijednosti[0])
     
@@ -259,9 +259,13 @@ def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
         line=dict(color='#D4AF37', width=2),
         name='Vaš Fraktal'
     ))
+    
+    # Sigurno definirani rasponi pomoću list() funkcije
+    raspon_osi = list([0, 10])
+    
     fig.update_layout(
         polar=dict(
-            radialaxis=dict(visible=True, range=[0, 10], gridcolor="rgba(255,255,255,0.1)"),
+            radialaxis=dict(visible=True, range=raspon_osi, gridcolor="rgba(255,255,255,0.1)"),
             angularaxis=dict(gridcolor="rgba(255,255,255,0.1)"),
             bgcolor="rgba(0,0,0,0)"
         ),
@@ -270,6 +274,41 @@ def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
         plot_bgcolor="rgba(0,0,0,0)",
         height=320,
         margin=dict(l=40, r=40, t=20, b=20)
+    )
+    return fig
+
+def nacrtaj_indikator_suglasja(postotak):
+    # Korištenje eksplicitnih listi kako bi se izbjeglo skrivanje koda u markdownu
+    lista_x = list([0, 1])
+    lista_y = list([0, 1])
+    raspon_osi = list([0, 100])
+    
+    korak_crveni = list([0, 40])
+    korak_zuti = list([40, 75])
+    korak_zeleni = list([75, 100])
+
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = postotak,
+        number = {'suffix': "%", 'font': {'color': "#D4AF37", 'size': 22}},
+        domain = {'x': lista_x, 'y': lista_y},
+        gauge = {
+            'axis': {'range': raspon_osi, 'tickwidth': 1, 'tickcolor': "rgba(255,255,255,0.2)"},
+            'bar': {'color': "#D4AF37"},
+            'bgcolor': "rgba(255,255,255,0.05)",
+            'borderwidth': 0,
+            'steps': [
+                {'range': korak_crveni, 'color': 'rgba(231, 76, 60, 0.1)'},
+                {'range': korak_zuti, 'color': 'rgba(241, 196, 15, 0.1)'},
+                {'range': korak_zeleni, 'color': 'rgba(46, 204, 113, 0.1)'}
+            ],
+        }
+    ))
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=100,
+        margin=dict(l=10, r=10, t=10, b=10)
     )
     return fig
 
