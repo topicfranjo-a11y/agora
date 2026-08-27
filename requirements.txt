@@ -2,3 +2,5 @@ streamlit
 psycopg2-binary
 plotly
 google-genai
+openai
+streamlit-javascript
