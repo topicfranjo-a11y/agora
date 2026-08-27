@@ -170,18 +170,19 @@ if analiziraj_gumb and user_input:
     with col2:
         with st.spinner("Čuvar Agore analizira vašu misao..."):
             try:
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": user_input}
-                    ],
-                    temperature=0.3
+                # Gemini koristi config umjesto temperature i sustavske upute unutar parametara
+                response = client.models.generate_content(
+                    model="gemini-3.6-flash",
+                    contents=user_input,
+                    config={
+                        "system_instruction": SYSTEM_PROMPT
+                    }
                 )
                 
-                pun_izlaz = response.choices.message.content
+                pun_izlaz = response.text
                 dijelovi = pun_izlaz.split("### [METRIKA]")
                 st.session_state.ai_refleksija = dijelovi[0]
+
                 
                 if len(dijelovi) > 1:
                     try:
