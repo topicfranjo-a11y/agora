@@ -6,45 +6,32 @@ from openai import OpenAI
 from datetime import datetime
 import os
 
-# 1. Konfiguracija stranice i klijenta pomoću Streamlit Secrets (Sigurnost na webu)
+import streamlit as st
+from google import genai
+
+# 1. Konfiguracija stranice (Mora biti prva Streamlit naredba)
 st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️", layout="wide")
 
-# Podaci se povlače iz tajnih postavki servera, a ne iz koda
-from google import genai
-import streamlit as st
-
-    try:
-        # Poziv besplatnog Google Gemini modela
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents="Ovdje upišite tekst upita koji šaljete na analizu"
-        )
-        ai_analiza = response.text
-        
-    except Exception as e:
-        st.error(f"Pogreška prilikom AI analize: {e}")
-        ai_analiza = "Analiza nije uspjela zbog tehničke pogreške."
-
-# Inicijalizacija Gemini klijenta (koristi ključ iz Secrets)
+# 2. Inicijalizacija Gemini klijenta (koristi ključ iz Secrets)
 client = genai.Client(api_key=st.secrets["OPENAI_API_KEY"]) 
 
-# Unutar vaše funkcije gdje radite AI analizu, zamijenite OpenAI poziv s ovim:
-response = client.models.generate_content(
-    model='gemini-2.5-flash',
-    contents="Vaš tekst ili upit za analizu ovdje"
-)
-ai_rezultat = response.text
+# 3. AI Analiza unutar sigurnog try-except bloka
+try:
+    # Poziv besplatnog Google Gemini modela
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents="Vaš tekst ili upit za analizu ovdje"
+    )
+    ai_rezultat = response.text
+    
+    # Ovdje možete prikazati rezultat korisniku na ekranu
+    st.write(ai_rezultat)
 
+except Exception as e:
+    st.error(f"Pogreška prilikom AI analize: {e}")
+    st.info("Provjerite jeste li ispravno postavili 'OPENAI_API_KEY' unutar Streamlit Secrets.")
+    ai_rezultat = "Analiza nije uspjela zbog tehničke pogreške."
 
-# Primjer poziva modela u vašoj funkciji za analizu:
-response = client.models.generate_content(
-    model='gemini-2.5-flash',
-    contents='Vaš upit ili tekst za analizu'
-)
-print(response.text)
-
-except Exception:
-    st.error("Kreirajte 'OPENAI_API_KEY' unutar Streamlit Secrets / Environment Variables.")
 
 SYSTEM_PROMPT = """
 Uloga: Ti si "Čuvar Agore", napredni AI sustav zadužen za pročišćavanje ljudske misli. 
