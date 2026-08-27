@@ -2,7 +2,6 @@
 import psycopg2  # Za PostgreSQL na serveru
 import plotly.graph_objects as go
 import json
-from openai import OpenAI
 from datetime import datetime
 import os
 from google import genai
