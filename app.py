@@ -9,6 +9,15 @@ import os
 import streamlit as st
 from google import genai
 
+client = genai.Client()
+
+response = client.models.generate_content(
+    model="gemini-3.6-flash",  # <--- Promijenite ovo
+    contents="Vaš upit ovdje"
+)
+print(response.text)
+
+
 # 1. Konfiguracija stranice (Mora biti prva Streamlit naredba)
 st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️", layout="wide")
 
