@@ -10,11 +10,19 @@ import os
 st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️", layout="wide")
 
 # Podaci se povlače iz tajnih postavki servera, a ne iz koda
-try:
-    from google import genai
+from google import genai
 import streamlit as st
 
-client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+# Inicijalizacija Gemini klijenta (koristi ključ iz Secrets)
+client = genai.Client(api_key=st.secrets["OPENAI_API_KEY"]) 
+
+# Unutar vaše funkcije gdje radite AI analizu, zamijenite OpenAI poziv s ovim:
+response = client.models.generate_content(
+    model='gemini-2.5-flash',
+    contents="Vaš tekst ili upit za analizu ovdje"
+)
+ai_rezultat = response.text
+
 
 # Primjer poziva modela u vašoj funkciji za analizu:
 response = client.models.generate_content(
