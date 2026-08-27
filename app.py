@@ -240,12 +240,13 @@ def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
 inicijaliziraj_bazu()
 
 # ==============================================================================
-# 6. FUNKCIJE ZA PLOTLY VIZUALIZACIJE
+# 6. FUNKCIJE ZA PLOTLY VIZUALIZACIJE (Popravljena sintaksa)
 # ==============================================================================
 def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
     kategorije = ['Analitički um (Logika)', 'Empatijski um (Razumijevanje)', 'Sintetički um (Mostovi)']
     vrijednosti = [analitika, empatija, sinteza]
     
+    # Zatvaranje petlje grafikona ponavljanjem prve točke
     kategorije.append(kategorije[0])
     vrijednosti.append(vrijednosti[0])
     
@@ -271,6 +272,33 @@ def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
         margin=dict(l=40, r=40, t=20, b=20)
     )
     return fig
+
+def nacrtaj_indikator_suglasja(postotak):
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = postotak,
+        number = {'suffix': "%", 'font': {'color': "#D4AF37", 'size': 22}},
+        domain = {'x':, 'y': [0, 1]},  # <-- POPRAVLJENO: Dodane vrijednosti [0, 1]
+        gauge = {
+            'axis': {'range':, 'tickwidth': 1, 'tickcolor': "rgba(255,255,255,0.2)"},  # <-- POPRAVLJENO: Dodano [0, 100]
+            'bar': {'color': "#D4AF37"},
+            'bgcolor': "rgba(255,255,255,0.05)",
+            'borderwidth': 0,
+            'steps': [
+                {'range':, 'color': 'rgba(231, 76, 60, 0.1)'},     # <-- POPRAVLJENO: Rasponi
+                {'range':, 'color': 'rgba(241, 196, 15, 0.1)'},   # <-- POPRAVLJENO: Rasponi
+                {'range':, 'color': 'rgba(46, 204, 113, 0.1)'}   # <-- POPRAVLJENO: Rasponi
+            ],
+        }
+    ))
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=100,
+        margin=dict(l=10, r=10, t=10, b=10)
+    )
+    return fig
+
 
 def nacrtaj_indikator_suglasja(postotak):
     fig = go.Figure(go.Indicator(
