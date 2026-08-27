@@ -1,4 +1,20 @@
 ﻿import streamlit as st
+
+# Dohvaćanje ključa iz vaših tajnih postavki (Secrets)
+gemini_kljuc = st.secrets.get("GEMINI_API_KEY", "")
+
+if gemini_kljuc:
+    # 1. Provjera vizualnog formata (Prefiks)
+    if gemini_kljuc.startswith("AIza"):
+        st.error("⚠️ Koristite stari Standard ključ (poinje s 'AIza')!")
+        st.info("Google u rujnu 2026. gasi ove ključeve. Molimo posjetite Google AI Studio i izradite novi 'Auth' ključ.")
+    elif gemini_kljuc.startswith("AQ"):
+        st.success("✅ Vaš Gemini API ključ je u ispravnom i sigurnom 'Auth' formatu (poinje s 'AQ').")
+    else:
+        st.warning("❓ Nepoznat format ključa. Provjerite jeste li prepisali cijeli tekst.")
+else:
+    st.error("❌ 'GEMINI_API_KEY' nije pronađen u Streamlit Secrets postavkama.")
+
 import psycopg2  # Za PostgreSQL na serveru
 import plotly.graph_objects as go
 import json
