@@ -273,8 +273,43 @@ def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
     return fig
 
 def nacrtaj_indikator_suglasja(postotak):
-    fig = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = postotak,
-        number = {'suffix': "%", 'font': {'color': "#D4AF37", 'size': 22}},
-        domain = {'x': list([0, 1]), 'y': list([0, 1])},
+    # Definiranje parametara kroz odvojene varijable radi čišće sintakse
+    raspon_osi = [0, 100]
+    koordinate_x = [0, 1]
+    koordinate_y = [0, 1]
+    
+    # Konfiguracija pojedinačnih koraka (steps) u mjeraču
+    koraci = [
+        dict(range=[0, 40], color="rgba(231, 76, 60, 0.1)"),
+        dict(range=[40, 75], color="rgba(241, 196, 15, 0.1)"),
+        dict(range=[75, 100], color="rgba(46, 204, 113, 0.1)")
+    ]
+    
+    # Izrada samog mjerača (Gauge objekt)
+    mjerac = dict(
+        axis=dict(range=raspon_osi, tickwidth=1, tickcolor="rgba(255,255,255,0.2)"),
+        bar=dict(color="#D4AF37"),
+        bgcolor="rgba(255,255,255,0.05)",
+        borderwidth=0,
+        steps=koraci
+    )
+    
+    # Sklapanje indikatora
+    indikator = go.Indicator(
+        mode="gauge+number",
+        value=postotak,
+        number=dict(suffix="%", font=dict(color="#D4AF37", size=22)),
+        domain=dict(x=koordinate_x, y=koordinate_y),
+        gauge=mjerac
+    )
+    
+    # Stvaranje i oblikovanje konačne figure
+    fig = go.Figure(indikator)
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=100,
+        margin=dict(l=10, r=10, t=10, b=10)
+    )
+    return fig
+
