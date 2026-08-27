@@ -240,13 +240,13 @@ def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
 inicijaliziraj_bazu()
 
 # ==============================================================================
-# 6. FUNKCIJE ZA PLOTLY VIZUALIZACIJE (Uklonjen rizik od sintaksnih grešaka)
+# 6. FUNKCIJE ZA PLOTLY VIZUALIZACIJE (Potpuno popravljena sintaksa)
 # ==============================================================================
 def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
     kategorije = ['Analitički um (Logika)', 'Empatijski um (Razumijevanje)', 'Sintetički um (Mostovi)']
     vrijednosti = [analitika, empatija, sinteza]
     
-    # Zatvaranje petlje grafikona dodavanjem prve točke na kraj niza
+    # Zatvaranje petlje grafikona
     kategorije.append(kategorije[0])
     vrijednosti.append(vrijednosti[0])
     
@@ -260,12 +260,9 @@ def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
         name='Vaš Fraktal'
     ))
     
-    # Sigurno generiranje raspona od 0 do 10 pomoću ugrađene Python funkcije
-    raspon_osi_radar = list(range(0, 11))
-    
     fig.update_layout(
         polar=dict(
-            radialaxis=dict(visible=True, range=[raspon_osi_radar[0], raspon_osi_radar[-1]], gridcolor="rgba(255,255,255,0.1)"),
+            radialaxis=dict(visible=True, range=list([0, 10]), gridcolor="rgba(255,255,255,0.1)"),
             angularaxis=dict(gridcolor="rgba(255,255,255,0.1)"),
             bgcolor="rgba(0,0,0,0)"
         ),
@@ -278,33 +275,33 @@ def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
     return fig
 
 def nacrtaj_indikator_suglasja(postotak):
-    # Eksplicitno definiranje koordinata bez korištenja sakrivenih znakova
-    nula = 0
-    jedan = 1
-    sto = 100
+    # Eksplicitno definiranje listi bez riskantnih markdown znakova
+    raspon_x = list()
+    raspon_x.append(0)
+    raspon_x.append(1)
     
-    lista_x_koordinate = [nula, jedan]
-    lista_y_koordinate = [nula, jedan]
-    pun_raspon_osi = [nula, sto]
+    raspon_y = list()
+    raspon_y.append(0)
+    raspon_y.append(1)
     
-    raspon_crveni = [nula, 40]
-    raspon_zuti = [40, 75]
-    raspon_zeleni = [75, sto]
+    osi_limits = list()
+    osi_limits.append(0)
+    osi_limits.append(100)
 
     fig = go.Figure(go.Indicator(
         mode = "gauge+number",
         value = postotak,
         number = {'suffix': "%", 'font': {'color': "#D4AF37", 'size': 22}},
-        domain = {'x': lista_x_koordinate, 'y': lista_y_koordinate},
+        domain = {'x': raspon_x, 'y': raspon_y},
         gauge = {
-            'axis': {'range': pun_raspon_osi, 'tickwidth': 1, 'tickcolor': "rgba(255,255,255,0.2)"},
+            'axis': {'range': osi_limits, 'tickwidth': 1, 'tickcolor': "rgba(255,255,255,0.2)"},
             'bar': {'color': "#D4AF37"},
             'bgcolor': "rgba(255,255,255,0.05)",
             'borderwidth': 0,
             'steps': [
-                {'range': raspon_crveni, 'color': 'rgba(231, 76, 60, 0.1)'},
-                {'range': raspon_zuti, 'color': 'rgba(241, 196, 15, 0.1)'},
-                {'range': raspon_zeleni, 'color': 'rgba(46, 204, 113, 0.1)'}
+                {'range': list([0, 40]), 'color': 'rgba(231, 76, 60, 0.1)'},
+                {'range': list([40, 75]), 'color': 'rgba(241, 196, 15, 0.1)'},
+                {'range': list([75, 100]), 'color': 'rgba(46, 204, 113, 0.1)'}
             ],
         }
     ))
@@ -313,6 +310,9 @@ def nacrtaj_indikator_suglasja(postotak):
         plot_bgcolor="rgba(0,0,0,0)",
         height=100,
         margin=dict(l=10, r=10, t=10, b=10)
+    )
+    return fig
+)
     )
     return fig
 
