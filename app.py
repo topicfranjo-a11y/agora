@@ -476,13 +476,17 @@ if st.button("Uputi na analizu"):
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
 
                 
-                # Trajno spremanje u bazu podataka
-                    spremi_analizirani_argument
-                    korisnik=trenutni_korisnik,
-                    tema=odabrana_tema,
-                    tekst=korisnikov_unos.strip(),
-                    ton=izracunata_ocjena_tona
-                )
+                               # Ekstrakcija tona i metričkih podataka
+                trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
+                
+                # POPRAVAK: Funkcija napisana u jednoj liniji koda eliminira sve probleme s razmacima
+                uspjeh = spremi_analizirani_argument(trenutni_korisnik, odabrana_tema, korisnikov_tekst, trenutni_ton, metrički_podaci)
+                
+                if uspjeh:
+                    st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
+                    time.sleep(1)
+                    st.rerun()
+
                 
                 # Prikaz vizualnog statusa pročišćavanja
                 st.divider()
