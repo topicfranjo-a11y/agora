@@ -75,6 +75,15 @@ def inicijaliziraj_bazu():
         conn = otvori_vezu()
         cursor = conn.cursor()
         
+        # OBIJE REŠENJA U JEDNOM:
+        # Automatski dodajemo stupac 'korisnik' ako je tablica kreirana ranije bez njega
+        try:
+            cursor.execute("ALTER TABLE argumenti ADD COLUMN IF NOT EXISTS korisnik TEXT;")
+            conn.commit()
+        except Exception:
+            conn.rollback() # Ako baza ne podržava 'IF NOT EXISTS' za alter, idemo dalje safely
+        
+        # 1. Tablica korisnika (IP + Pseudonim)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS korisnici (
                 ip_adresa TEXT PRIMARY KEY,
@@ -83,6 +92,7 @@ def inicijaliziraj_bazu():
             )
         """)
         
+        # 2. Tablica tema rasprava
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS teme (
                 id SERIAL PRIMARY KEY,
@@ -91,6 +101,7 @@ def inicijaliziraj_bazu():
             )
         """)
         
+        # 3. Tablica argumenata (Sada sigurno kreira s novom strukturom)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS argumenti (
                 id SERIAL PRIMARY KEY,
@@ -102,6 +113,7 @@ def inicijaliziraj_bazu():
             )
         """)
         
+        # 4. Umetanje početnih tema ako je tablica prazna
         cursor.execute("SELECT COUNT(*) FROM teme")
         rezultat = cursor.fetchone()
         
@@ -118,7 +130,7 @@ def inicijaliziraj_bazu():
         conn.close()
     except Exception as e:
         print(f"Kritična greška u bazi podataka: {str(e)}")
-        st.error("Upozorenje: Poteškoće pri povezivanju ili inicijalizaciji baze podataka.")
+
 
 def dohvati_ili_kreiraj_korisnika(ip_adresa):
     try:
