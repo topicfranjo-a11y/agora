@@ -1,3 +1,14 @@
+# Provjera i inicijalizacija pojedinačno
+if "GEMINI_API_KEY" in st.secrets:
+    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+else:
+    st.warning("⚠️ Gemini API ključ nije pronađen u Secrets postavkama.")
+
+if "OPENAI_API_KEY" in st.secrets:
+    openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+else:
+    st.warning("⚠️ OpenAI API ključ nije pronađen u Secrets postavkama.")
+
 # ==============================================================================
 # 1. UVOZ BIBLIOTEKA
 # ==============================================================================
