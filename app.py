@@ -479,18 +479,20 @@ with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
     if admin_lozinka == "agora2026":
         st.success("Pristup odobren!")
         
-        # --- SEKCIJA 1: DODAVANJE NOVE TEME ---
+               # --- SEKCIJA 1: DODAVANJE NOVE TEME ---
         st.write("### ➕ Dodaj novu temu")
         nova_tema_input = st.text_input("Naziv nove teme:", placeholder="Npr. Sloboda govora vs. Govor mržnje")
         
         if st.button("Spremi temu", use_container_width=True):
-    uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
-    if uspjeh:
-        st.toast(poruka, icon="✅")
-        time.sleep(1)
-        st.rerun()  # ISPRAVNO: Samo unutar gumba nakon uspješnog spremanja!
-    else:
-        st.error(poruka)
+            # Sve linije ispod moraju biti uvučene za točno 4 razmaka više od 'if' izjave
+            uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
+            if uspjeh:
+                st.toast(poruka, icon="✅")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error(poruka)
+
 
                 
         st.write("---")
