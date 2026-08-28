@@ -1,17 +1,3 @@
-# Pokreni ovo samo jednom ako se tema ne pojavi na sučelju:
-try:
-    conn = otvori_vezu()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO teme (naziv) VALUES (%s) ON CONFLICT (naziv) DO NOTHING;", 
-        ("Religija kao obmana ili izvor snage",)
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
-except Exception as e:
-    pass
-
 # ==============================================================================
 # 1. UVOZ BIBLIOTEKA
 # ==============================================================================
