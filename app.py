@@ -117,6 +117,7 @@ def inicijaliziraj_bazu():
                 ("Etičke granice genetskog inženjeringa",),
                 ("Utjecaj umjetne inteligencije na privatnost",),
                 ("Budućnost decentraliziranog upravljanja društvom",)
+                ("Religija kao zabluda ili izvor nade",) 
             ]
             cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
             
@@ -167,6 +168,7 @@ def inicijaliziraj_bazu():
                 ("Etičke granice genetskog inženjeringa",),
                 ("Utjecaj umjetne inteligencije na privatnost",),
                 ("Budućnost decentraliziranog upravljanja društvom",)
+                ("Religija kao zabluda ili izvor nade",) 
             ]
             cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
             
