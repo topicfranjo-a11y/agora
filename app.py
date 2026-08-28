@@ -1,6 +1,7 @@
 # ==============================================================================
 # 1. UVOZ BIBLIOTEKA (Uklonjen OpenAI)
 # ==============================================================================
+import requests
 import os
 import time
 import json
@@ -93,61 +94,53 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
         st.error(f"Neočekivana greška pri analizi: {e}")
         return None
 
+
 # ==============================================================================
-# 6. IZVRŠAVANJE I STREAMLIT UI (Primjer integracije IP adrese)
+# 6. SIGURAN DOHVAT IP ADRESE I KORISNIKA
 # ==============================================================================
 # Inicijalizacija baze na startu
-def inicijaliziraj_bazu():
-    try:
-        conn = otvori_vezu()
-        cursor = conn.cursor()
-        
-        # 1. Tablica korisnika (IP + Pseudonim)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS korisnici (
-                ip_adresa TEXT PRIMARY KEY,
-                pseudonim TEXT NOT NULL,
-                datum_registracije TEXT NOT NULL
-            )
-        """)
-        
-        # 2. Tablica tema rasprava
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS teme (
-                id SERIAL PRIMARY KEY,
-                naziv TEXT UNIQUE NOT NULL,
-                aktivna BOOLEAN DEFAULT TRUE
-            )
-        """)
-        
-        # 3. Tablica argumenata
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS argumenti (
-                id SERIAL PRIMARY KEY,
-                korisnik TEXT NOT NULL,
-                tema TEXT NOT NULL DEFAULT 'Općenito',
-                tekst TEXT NOT NULL,
-                datum TEXT NOT NULL,
-                ton TEXT
-            )
-        """)
-        
-        # 4. Provjera i umetanje početnih tema ako je tablica prazna
-        cursor.execute("SELECT COUNT(*) FROM teme")
-        rezultat = cursor.fetchone()
-        
-        # POPRAVLJENO: Dohvaćamo vrijednost iz prve pozicije niza (tuple-a)
-        if rezultat and rezultat[0] == 0:
-            pocetne_teme = [
-                ("Etičke granice genetskog inženjeringa",),
-                ("Utjecaj umjetne informacije na privatnost",),
-                ("Budućnost decentraliziranog upravljanja društvom",)
-            ]
-            cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
+inicijaliziraj_bazu()
+
+# Pokušavamo dohvatiti IP adresu preko brzog Python API poziva (ne blokira UI)
+try:
+    ip_adresa = requests.get("https://ipify.org", timeout=2).text
+except Exception:
+    ip_adresa = "127.0.0.1"  # Rezervna opcija ako mreža ne reagira
+
+# Dohvaćanje ili kreiranje pseudonima iz baze
+trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
+
+# ==============================================================================
+# 7. STREAMLIT KORISNIČKO SUČELJE (UI) - Ovo će odmah ukloniti prazan ekran
+# ==============================================================================
+st.title("🏛️ Agora Web — Protokol Uma")
+st.subheader(f"Dobrodošli natrag, **{trenutni_korisnik}**")
+
+# Kratke upute za korisnika
+st.markdown("""
+Ovaj sustav nadzire **Čuvar Agore**. Svaki uneseni tekst bit će analiziran na analitičnost, 
+empatiju i sintezu prije nego što bude trajno zapisan u protokole.
+""")
+
+# Izbornik za odabir teme rasprave
+aktivne_teme = dohvati_aktivne_teme()
+odabrana_tema = st.selectbox("Odaberite temu za raspravu:", aktivne_teme)
+
+# Polje za unos teksta
+korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdje:", height=150, placeholder="Napišite što mislite...")
+
+if st.button("Pošalji na analizu i pročišćavanje", type="primary"):
+    if korisnikov_unos.strip() == "":
+        st.warning("Molimo vas da unesete tekst prije slanja.")
+    else:
+        with st.spinner("Čuvar Agore analizira vašu misao..."):
+            # Ovdje pozivamo funkciju za Gemini koju smo ranije definirali
+            rezultat_analize = analiziraj_tekst_s_gemini(korisnikov_unos)
             
-        conn.commit()
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        st.error(f"Greška pri inicijalizaciji baze podataka: {e}")
+            if rezultat_analize:
+                st.success("Analiza uspješno izvršena!")
+                st.markdown(rezultat_analize)
+                
+                # TODO: Ovdje ćemo u idućem koraku dodati parsiranje [METRIKE] i spremanje u bazu!
+
 
