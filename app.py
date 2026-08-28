@@ -135,14 +135,63 @@ def parsiraj_metriku_i_status(tekst_odgovora):
 # 6. GLAVNO IZVRŠAVANJE I STREAMLIT UI
 # ==============================================================================
 # Inicijalizacija baze na startu
-inicijaliziraj_bazu()
+def inicijaliziraj_bazu():
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        
+        # 1. Tablica korisnika (IP + Pseudonim)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS korisnici (
+                ip_adresa TEXT PRIMARY KEY,
+                pseudonim TEXT NOT NULL,
+                datum_registracije TEXT NOT NULL
+            )
+        """)
+        
+        # 2. Tablica tema rasprava
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS teme (
+                id SERIAL PRIMARY KEY,
+                naziv TEXT UNIQUE NOT NULL,
+                aktivna BOOLEAN DEFAULT TRUE
+            )
+        """)
+        
+        # 3. Tablica argumenata
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS argumenti (
+                id SERIAL PRIMARY KEY,
+                korisnik TEXT NOT NULL,
+                tema TEXT NOT NULL DEFAULT 'Općenito',
+                tekst TEXT NOT NULL,
+                datum TEXT NOT NULL,
+                ton TEXT
+            )
+        """)
+        
+        # 4. Provjera i umetanje početnih tema ako je tablica prazna
+        cursor.execute("SELECT COUNT(*) FROM teme")
+        rezultat = cursor.fetchone()
+        
+        # POPRAVLJENO: Točno čitanje nultog indeksa iz tuple-a (rezultat[0])
+        if rezultat and rezultat[0] == 0:
+            pocetne_teme = [
+                ("Etičke granice genetskog inženjeringa",),
+                ("Utjecaj umjetne inteligencije na privatnost",),
+                ("Budućnost decentraliziranog upravljanja društvom",)
+            ]
+            cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        # Prikazujemo stvarnu grešku u konzolu poslužitelja (ili Streamlit Cloud logove)
+        print(f"Kritična greška u bazi podataka: {str(e)}")
+        # Ne dozvoljavamo rušenje aplikacije na ekranu korisnika
+        st.error("Upozorenje: Poteškoće pri povezivanju ili inicijalizaciji baze podataka.")
 
-# Siguran dohvat IP adrese preko Pythona
-try:
-    import requests
-    ip_adresa = requests.get("https://ipify.org", timeout=2).text
-except Exception:
-    ip_adresa = "127.0.0.1"
 
 # Dohvaćanje ili kreiranje pseudonima iz baze
 trenutni_korisnik = dohvati_ili_creiraj_korisnika(ip_adresa)
