@@ -1,6 +1,7 @@
 # ==============================================================================
 # 1. UVOZ BIBLIOTEKA (Uklonjen OpenAI)
 # ==============================================================================
+import re
 import requests
 import os
 import time
@@ -253,6 +254,40 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
     """
     Šalje tekst na analizu koristeći novi Google GenAI SDK i najnoviji model gemini-3.6-flash.
     """
+    def parsiraj_metriku_i_status(tekst_odgovora):
+    """
+    Izvlači JSON metriku i STATUS (ZAKLJUČANO/OTKLJUČANO) iz Gemini odgovora.
+    Vraća tuple: (metrika_dict, status_string)
+    """
+    metrika = {"analitika": 0, "empatija": 0, "sinteza": 0, "suglasje": 0}
+    status = "ZAKLJUČANO" # Sigurnosna zadana vrijednost
+    
+    if not tekst_odgovora:
+        return metrika, status
+
+    try:
+        # 1. Čišćenje i izvlačenje JSON-a iz sekcije ### [METRIKA]
+        if "### [METRIKA]" in tekst_odgovora:
+            dijelovi = tekst_odgovora.split("### [METRIKA]")
+            json_tekst = dijelovi[1].strip()
+            
+            # Uklanjamo eventualne markdown oznake za kodove ```json ... ``` ako ih je model usprkos promptu stavio
+            json_tekst = re.sub(r"```[a-zA-Z]*", "", json_tekst).strip()
+            json_tekst = json_tekst.replace("```", "").strip()
+            
+            # Pretvaranje u Python rječnik
+            metrika = json.loads(json_tekst)
+            
+        # 2. Izvlačenje statusa iz sekcije ### [STATUS]
+        status_meč = re.search(r"### \[STATUS\]\s*\n*(ZAKLJUČANO|OTKLJUČANO)", tekst_odgovora, re.IGNORECASE)
+        if status_meč:
+            status = status_meč.group(1).upper().strip()
+            
+    except Exception as e:
+        st.warning(f"⚠️ Čuvar Agore je vratio nestandardan format metrike, ali tekst je obrađen.")
+        
+    return metrika, status
+
     if not ai_klijent:
         st.error("AI klijent nije inicijaliziran. Provjerite API ključ.")
         return None
@@ -309,14 +344,40 @@ odabrana_tema = st.selectbox(
 # Polje za unos teksta
 korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdej:", height=150, placeholder="Napišite što mislite...")
 
-# Gumb za pokretanje analize (Funkcija iznad je sada vidljiva Pythonu)
+# Gumb za pokretanje analize i spremanje
 if st.button("Pošalji na analizu i pročišćavanje", type="primary"):
     if korisnikov_unos.strip() == "":
         st.warning("Molimo vas da unesete tekst prije slanja.")
     else:
-        with st.spinner("Čuvar Agore analizira vašu misao..."):
+        with st.spinner("Čuvar Agore analizira vašu misao i provjerava protokole..."):
+            # 1. Slanje teksta modelu Gemini
             rezultat_analize = analiziraj_tekst_s_gemini(korisnikov_unos)
             
-            if rezultat_analize:
-                st.success("Analiza uspješno izvršena!")
-                st.markdown(rezultat_analize)
+            if resultado_analize := rezultat_analize:
+                st.success("Čuvar Agore je završio analizu!")
+                
+                # Prikazujemo cijeli strukturirani tekst na ekranu
+                st.markdown(resultado_analize)
+                
+                # 2. Parsiranje ocjena i statusa iz teksta
+                metrika, status = parsiraj_metriku_i_status(resultado_analize)
+                
+                # Izvlačimo ocjenu za 'suglasje' ili računamo prosjek kao ton za bazu podataka
+                izracunata_ocjena_tona = metrika.get("suglasje", metrika.get("analitika", 0))
+                
+                # 3. Trajno spremanje u bazu podataka (funkcija prima: korisnik, tema, tekst, ton)
+                # Sprema se izvorni korisnikov tekst kako je zadano u bazi
+                spremi_argument(
+                    korisnik=trenutni_korisnik,
+                    tema=odabrana_tema,
+                    tekst=korisnikov_unos.strip(),
+                    ton=izracunata_ocjena_tona
+                )
+                
+                # 4. Vizualna povratna informacija o statusu pročišćavanja
+                st.divider()
+                if status == "OTKLJUČANO":
+                    st.balloons()
+                    st.success("🔓 **PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO):** Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
+                else:
+                    st.error("🔒 **BLOKADA (ZAKLJUČANO):** Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
