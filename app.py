@@ -68,24 +68,6 @@ else:
 # 5. FUNKCIJE ZA POSTGRESQL BAZU PODATAKA
 # ==============================================================================
  
-def ocisti_prazne_teme():
-    """Automatski briše neispravne i prazne teme nastale greškom u kodu."""
-    try:
-        conn = otvori_vezu()
-        cursor = conn.cursor()
-        # Briše prazne prostore, doslovne stringove nastale od tuple-a i prazne tekstove
-        neispravni_nazivi = ['', ' ', '()', "('',)", "()", "None"]
-        cursor.execute("""
-            DELETE FROM teme 
-            WHERE TRIM(naziv) = '' 
-               OR naziv IS NULL 
-               OR naziv IN %s
-        """, (tuple(neispravni_nazivi),))
-        conn.commit()
-        cursor.close()
-        conn.close()
-    except Exception:
-        pass
 
 def obrisi_temu(naziv_teme):
     """Briše selektiranu temu i njezine argumente iz baze podataka."""
@@ -161,66 +143,23 @@ def inicijaliziraj_bazu():
         conn = otvori_vezu()
         cursor = conn.cursor()
         
-        # 1. Tablica korisnika
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS korisnici (
-                ip_adresa TEXT PRIMARY KEY,
-                pseudonim TEXT NOT NULL,
-                datum_registracije TEXT NOT NULL
-            )
-        """)
-    
-
-        # 2. Tablica tema
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS teme (
-                id SERIAL PRIMARY KEY,
-                naziv TEXT UNIQUE NOT NULL,
-                aktivna BOOLEAN DEFAULT TRUE
-            )
-        """)
+        # ... (ostatak vašeg koda za kreiranje tablica korisnici, teme, argumenti) ...
         
-        # Ostavljamo DROP i ponovno kreiranje argumenata radi nove metričke strukture
-        cursor.execute("DROP TABLE IF EXISTS argumenti CASCADE;")
-        
+        # POPRAVAK: Čišćenje anomalija izvršavamo isključivo OVDJE, unutar inicijalizacije
+        neispravni_nazivi = ['', ' ', '()', "('',)", "()", "None"]
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS argumenti (
-                id SERIAL PRIMARY KEY,
-                korisnik TEXT NOT NULL,
-                tema TEXT NOT NULL DEFAULT 'Općenito',
-                tekst TEXT NOT NULL,
-                datum TEXT NOT NULL,
-                ton TEXT,
-                ocjena_analitika REAL DEFAULT 0,
-                ocjena_empatija REAL DEFAULT 0,
-                ocjena_sinteza REAL DEFAULT 0,
-                ocjena_suglasje REAL DEFAULT 0
-            )
-        """)
+            DELETE FROM teme 
+            WHERE TRIM(naziv) = '' 
+               OR naziv IS NULL 
+               OR naziv IN %s
+        """, (tuple(neispravni_nazivi),))
         
-        # POPRAVAK: Pojedinačno umetanje tema uz provjeru konflikta (radi i na punoj bazi)
-        pocetne_teme = [
-            ("Etičke granice genetskog inženjeringa",),
-            ("Utjecaj umjetne inteligencije na privatnost",),
-            ("Budućnost decentraliziranog upravljanja društvom",),
-            ("Religija kao obmana ili izvor snage",)
-        ]
-       
-        for tema in pocetne_teme:
-            cursor.execute("""
-                INSERT INTO teme (naziv) 
-                VALUES (%s) 
-                ON CONFLICT (naziv) DO NOTHING
-            """, tema)
-            
         conn.commit()
         cursor.close()
         conn.close()
     except Exception as e:
-        st.error(f"Greška pri inicijalizaciji baze: {e}")
-
-
         print(f"Kritična greška u bazi podataka: {str(e)}")
+
         st.error("Upozorenje: Poteškoće pri povezivanju ili inicijalizaciji baze podataka.")
 
         
@@ -545,13 +484,14 @@ with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
         nova_tema_input = st.text_input("Naziv nove teme:", placeholder="Npr. Sloboda govora vs. Govor mržnje")
         
         if st.button("Spremi temu", use_container_width=True):
-            uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
-            if uspjeh:
-                st.toast(poruka, icon="✅")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error(poruka)
+    uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
+    if uspjeh:
+        st.toast(poruka, icon="✅")
+        time.sleep(1)
+        st.rerun()  # ISPRAVNO: Samo unutar gumba nakon uspješnog spremanja!
+    else:
+        st.error(poruka)
+
                 
         st.write("---")
         
