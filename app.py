@@ -249,21 +249,36 @@ def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
 # ==============================================================================
 # 5. FUNKCIJA ZA ANALIZU TEKSTA PREKO GEMINI MODELA
 # ==============================================================================
-
-def analiziraj_tekst_s_gemini(korisnikov_tekst):
-    """
-    Šalje tekst na analizu koristeći novi Google GenAI SDK i najnoviji model gemini-3.6-flash.
-    """
-   def parsiraj_metriku_i_status(tekst_odgovora):
-    """
-    Izvlači JSON metriku i STATUS (ZAKLJUČANO/OTKLJUČANO) iz Gemini odgovora.
-    Vraća tuple: (metrika_dict, status_string)
-    """
+# Pazite da 'def' počinje točno na početku linije, bez razmaka s lijeve strane!
+def parsiraj_metriku_i_status(tekst_odgovora):
     metrika = {"analitika": 0, "empatija": 0, "sinteza": 0, "suglasje": 0}
-    status = "ZAKLJUČANO"  # Sigurnosna zadana vrijednost
+    status = "ZAKLJUČANO"
     
     if not tekst_odgovora:
         return metrika, status
+
+    try:
+        # 1. Izvlačenje JSON-a iz sekcije ### [METRIKA]
+        if "### [METRIKA]" in tekst_odgovora:
+            dijelovi = tekst_odgovora.split("### [METRIKA]")
+            if len(dijelovi) > 1:
+                json_tekst = dijelovi[1].strip()
+                # Uklanjamo eventualne markdown oznake za kodove ```json ... ``` ako ih je model stavio
+                json_tekst = re.sub(r"```[a-zA-Z]*", "", json_tekst).strip()
+                json_tekst = json_tekst.replace("```", "").strip()
+                # Pretvaranje u Python rječnik
+                metrika = json.loads(json_tekst)
+            
+        # 2. Izvlačenje statusa iz sekcije ### [STATUS]
+        status_meč = re.search(r"### \[STATUS\]\s*\n*(ZAKLJUČANO|OTKLJUČANO)", tekst_odgovora, re.IGNORECASE)
+        if status_meč:
+            status = status_meč.group(1).upper().strip()
+            
+    except Exception as e:
+        st.warning("⚠️ Čuvar Agore je vratio nestandardan format metrike, ali tekst je obrađen.")
+        
+    return metrika, status
+
 
     try:
         # 1. Čišćenje i izvlačenje JSON-a iz sekcije ### [METRIKA]
