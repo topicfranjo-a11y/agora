@@ -272,7 +272,6 @@ empatiju i sintezu prije nego što bude trajno zapisan u protokole.
 
 # Ostatak tvog UI koda (selectbox, text_area, button)...
 aktivne_teme = dohvati_aktivne_teme()
-odabrana_tema = st.selectbox("Odaberite temu za raspravu:", aktivne_teme)
 
 
 
