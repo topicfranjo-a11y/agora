@@ -67,8 +67,7 @@ else:
 # ==============================================================================
 # 5. FUNKCIJE ZA POSTGRESQL BAZU PODATAKA
 # ==============================================================================
-inicijaliziraj_bazu()
-ocisti_prazne_teme() 
+ 
 def ocisti_prazne_teme():
     """Automatski briše neispravne i prazne teme nastale greškom u kodu."""
     try:
@@ -205,7 +204,8 @@ def inicijaliziraj_bazu():
             ("Budućnost decentraliziranog upravljanja društvom",),
             ("Religija kao obmana ili izvor snage",)
         ]
-        
+        inicijaliziraj_bazu()
+        ocisti_prazne_teme() 
         for tema in pocetne_teme:
             cursor.execute("""
                 INSERT INTO teme (naziv) 
