@@ -67,6 +67,27 @@ else:
 # ==============================================================================
 # 5. FUNKCIJE ZA POSTGRESQL BAZU PODATAKA
 # ==============================================================================
+def obrisi_temu(naziv_teme):
+    """Briše temu i sve njezine povezane argumente iz baze podataka."""
+    if not naziv_teme or naziv_teme == "Općenito":
+        return False, "Nije moguće obrisati zadanu temu 'Općenito'!"
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        
+        # 1. Prvo brišemo sve argumente povezane s tom temom
+        cursor.execute("DELETE FROM argumenti WHERE tema = %s", (naziv_teme,))
+        
+        # 2. Zatim brišemo samu temu iz tablice tema
+        cursor.execute("DELETE FROM teme WHERE naziv = %s", (naziv_teme,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True, f"Uspješno obrisana tema '{naziv_teme}' i svi njezini argumenti."
+    except Exception as e:
+        return False, f"Greška pri brisanju: {str(e)}"
+
 def dodaj_novu_temu(naziv_teme):
     """Upisuje novu temu u bazu podataka ako već ne postoji."""
     if not naziv_teme.strip():
@@ -468,35 +489,56 @@ if st.button("Pošalji na analizu i pročišćavanje", key="gumb_za_slanje_agora
                 else:
                     st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
 # ==============================================================================
-# 8. ADMINISTRATORSKI PANEL (Upravljanje temama)
+# 8. ADMINISTRATORSKI PANEL (Upravljanje temama - Nadograđeno)
 # ==============================================================================
 st.sidebar.markdown("---")
 with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
-    # Lozinka za pristup (Zamijenite 'agora2026' sa svojom željenom lozinkom)
     admin_lozinka = st.text_input("Unesite administratorsku lozinku:", type="password")
     
     if admin_lozinka == "agora2026":
         st.success("Pristup odobren!")
-        st.write("### Upravljanje temama rasprave")
         
-        # Forma za dodavanje nove teme
+        # --- SEKCIJA 1: DODAVANJE NOVE TEME ---
+        st.write("### ➕ Dodaj novu temu")
         nova_tema_input = st.text_input("Naziv nove teme:", placeholder="Npr. Sloboda govora vs. Govor mržnje")
         
-        if st.button("➕ Dodaj temu u izbornik", use_container_width=True):
+        if st.button("Spremi temu", use_container_width=True):
             uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
             if uspjeh:
                 st.toast(poruka, icon="✅")
                 time.sleep(1)
-                st.rerun()  # Osvježava sučelje kako bi se tema odmah pojavila u st.selectbox
+                st.rerun()
             else:
                 st.error(poruka)
                 
-        # Dodatno: Pregled trenutnih tema s mogućnošću deaktivacije (opcionalno)
         st.write("---")
-        st.caption("Trenutno aktivne teme u bazi:")
-        trenutne_teme = dohvati_aktivne_teme()
-        for t in trenutne_teme:
-            st.text(f"• {t}")
+        
+        # --- SEKCIJA 2: BRISANJE POSTOJEĆE TEME ---
+        st.write("### 🗑️ Obriši temu")
+        sve_teme_za_brisanje = dohvati_aktivne_teme()
+        
+        # Filtriramo privremenu/glavnu temu ako ne želimo da se slučajno obriše
+        opcije_brisanja = [t for t in sve_teme_za_brisanje if t != "Općenito"]
+        
+        if opcije_brisanja:
+            tema_za_uklanjanje = st.selectbox("Odaberite temu za trajno brisanje:", opcije_brisanja, key="delete_select")
+            
+            # Sigurnosna kvačica kako se ne bi obrisalo slučajnim klikom
+            potvrda_brisanja = st.checkbox("Potvrđujem da želim trajno obrisati ovu temu i sve njezine poruke.")
+            
+            if st.button("🚨 TRAJNO OBRIŠI", use_container_width=True, type="primary"):
+                if potvrda_brisanja:
+                    uspjeh, poruka = obrisi_temu(tema_za_uklanjanje)
+                    if uspjeh:
+                        st.toast(poruka, icon="🗑️")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error(poruka)
+                else:
+                    st.warning("Morate označiti kućicu za potvrdu prije brisanja!")
+        else:
+            st.info("Nema tema dostupnih za brisanje.")
             
     elif admin_lozinka != "":
         st.error("Pogrešna lozinka. Pristup odbijen.")
