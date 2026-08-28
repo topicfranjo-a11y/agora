@@ -66,45 +66,17 @@ else:
     st.error("❌ Kritična greška: 'GEMINI_API_KEY' nije pronađen u Streamlit Secrets postavkama!")
 
 # ==============================================================================
-# 5. FUNKCIJA ZA ANALIZU TEKSTA PREKO GEMINI MODELA
+# 5. FUNKCIJE ZA POSTGRESQL BAZU PODATAKA
 # ==============================================================================
-def analiziraj_tekst_s_gemini(korisnikov_tekst):
-    """
-    Šalje tekst na analizu koristeći novi Google GenAI SDK i model gemini-2.5-flash.
-    """
-    if not ai_klijent:
-        st.error("AI klijent nije inicijaliziran. Provjerite API ključ.")
-        return None
-
-    try:
-        # Slanje zahtjeva s definiranim system_instruction parametrom
-        odgovor = ai_klijent.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=korisnikov_tekst,
-            config={
-                'system_instruction': SYSTEM_PROMPT,
-                'temperature': 0.2  # Niža temperatura za strogo praćenje strukture formata
-            }
-        )
-        return odgovor.text
-    except errors.APIError as e:
-        st.error(f"Gemini API greška: {e}")
-        return None
-    except Exception as e:
-        st.error(f"Neočekivana greška pri analizi: {e}")
-        return None
-
-
-# ==============================================================================
-# 6. SIGURAN DOHVAT IP ADRESE I KORISNIKA
-# ==============================================================================
+def otvori_vezu():
+    return psycopg2.connect(st.secrets["DATABASE_URL"])
 
 def inicijaliziraj_bazu():
     try:
         conn = otvori_vezu()
         cursor = conn.cursor()
         
-        # 1. Tablica korisnika (IP + Pseudonim)
+        # Tablica korisnika
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS korisnici (
                 ip_adresa TEXT PRIMARY KEY,
@@ -113,7 +85,7 @@ def inicijaliziraj_bazu():
             )
         """)
         
-        # 2. Tablica tema rasprava
+        # Tablica tema
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS teme (
                 id SERIAL PRIMARY KEY,
@@ -122,7 +94,7 @@ def inicijaliziraj_bazu():
             )
         """)
         
-        # 3. Tablica argumenata
+        # Tablica argumenata
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS argumenti (
                 id SERIAL PRIMARY KEY,
@@ -134,11 +106,9 @@ def inicijaliziraj_bazu():
             )
         """)
         
-        # 4. Provjera i umetanje početnih tema ako je tablica prazna
+        # Umetanje početnih tema ako je tablica prazna
         cursor.execute("SELECT COUNT(*) FROM teme")
         rezultat = cursor.fetchone()
-        
-        # POPRAVLJENO: Točan dohvat nultog indeksa iz tuple-a (rezultat[0])
         if rezultat and rezultat[0] == 0:
             pocetne_teme = [
                 ("Etičke granice genetskog inženjeringa",),
@@ -151,8 +121,159 @@ def inicijaliziraj_bazu():
         cursor.close()
         conn.close()
     except Exception as e:
-        # Prikaz stvarne pogreške lokalno radi lakšeg otklanjanja
-        st.error(f"Kritična greška pri inicijalizaciji baze podataka: {str(e)}")
+        st.error(f"Greška pri inicijalizaciji baze podataka: {e}")
+
+def dohvati_ili_kreiraj_korisnika(ip_adresa):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("SELECT pseudonim FROM korisnici WHERE ip_adresa = %s", (ip_adresa,))
+        rezultat = cursor.fetchone()
+        
+        if rezultat:
+            # POPRAVLJENO: Uzimamo string iz tuple-a, a ne cijeli tuple
+            pseudonim = rezultat[0]
+        else:
+            kratki_ip = ip_adresa.split(".")[-1] if ip_adresa and "." in ip_adresa else "X"
+            pseudonim = f"Građanin_{kratki_ip}_{int(time.time()) % 1000}"
+            vrijeme = datetime.now().strftime("%d.%m.%Y.")
+            cursor.execute(
+                "INSERT INTO korisnici (ip_adresa, pseudonim, datum_registracije) VALUES (%s, %s, %s)",
+                (ip_adresa, pseudonim, vrijeme)
+            )
+            conn.commit()
+            st.toast(f"🔑 Kreiran privremeni profil: {pseudonim}")
+            
+        cursor.close()
+        conn.close()
+        return str(pseudonim)
+    except Exception as e:
+        # Rezervna opcija u slučaju greške s bazom kako se aplikacija ne bi srušila
+        return "Gost_Agore"
+
+def azuriraj_pseudonim(ip_adresa, novi_pseudonim):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE korisnici SET pseudonim = %s WHERE ip_adresa = %s", (novi_pseudonim, ip_adresa))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+def dohvati_aktivne_teme():
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("SELECT naziv FROM teme WHERE aktivna = TRUE ORDER BY id ASC")
+        # POPRAVLJENO: Izvlačenje čistog stringa iz svakog retka baze
+        teme = [red[0] for red in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return teme if teme else ["Općenito"]
+    except Exception:
+        return ["Općenito"]
+
+def dodaj_novu_temu(naziv_teme):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO teme (naziv) VALUES (%s) ON CONFLICT DO NOTHING", (naziv_teme.strip(),))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+def spremi_argument(korisnik, tema, tekst, ton):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        vrijeme = datetime.now().strftime("%d.%m.%Y. u %H:%M")
+        cursor.execute(
+            "INSERT INTO argumenti (korisnik, tema, tekst, datum, ton) VALUES (%s, %s, %s, %s, %s)", 
+            (korisnik, tema, tekst, vrijeme, str(ton))
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        st.error(f"Greška pri spremanju u bazu: {e}")
+
+def dohvati_metriku_teme(tema_naziv):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("SELECT ton, korisnik FROM argumenti WHERE tema = %s", (tema_naziv,))
+        rezultati = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        if not rezultati:
+            return 0, 0
+            
+        broj_sudionika = len(set([r[1] for r in rezultati]))
+        vrijednosti = []
+        for r in rezultati:
+            try:
+                if r[0]:
+                    vrijednosti.append(float(r[0]))
+            except ValueError:
+                continue
+                
+        prosjek = round(sum(vrijednosti) / len(vrijednosti)) if vrijednosti else 0
+        return prosjek, broj_sudionika
+    except Exception:
+        return 0, 0
+
+def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        if samo_moje and trenutni_korisnik:
+            cursor.execute("SELECT korisnik, tema, tekst, datum, ton FROM argumenti WHERE korisnik = %s ORDER BY id DESC", (trenutni_korisnik,))
+        else:
+            cursor.execute("SELECT korisnik, tema, tekst, datum, ton FROM argumenti ORDER BY id DESC")
+        
+        argumenti = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return argumenti
+    except Exception:
+        return []
+
+# ==============================================================================
+# 6. IZVRŠAVANJE I STREAMLIT UI
+# ==============================================================================
+# Inicijalizacija baze podataka na startu
+inicijaliziraj_bazu()
+
+# Siguran dohvat IP adrese
+try:
+    import requests
+    ip_adresa = requests.get("https://ipify.org", timeout=2).text
+except Exception:
+    ip_adresa = "127.0.0.1"
+
+# Osigurano definiranje varijable bez obzira na greške u bazi
+trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
+
+# Prikaz sučelja
+st.title("🏛️ Agora Web — Protokol Uma")
+st.subheader(f"Dobrodošli natrag, **{trenutni_korisnik}**")
+
+st.markdown("""
+Ovaj sustav nadzire **Čuvar Agore**. Svaki uneseni tekst bit će analiziran na analitičnost, 
+empatiju i sintezu prije nego što bude trajno zapisan u protokole.
+""")
+
+# Ostatak tvog UI koda (selectbox, text_area, button)...
+aktivne_teme = dohvati_aktivne_teme()
+odabrana_tema = st.selectbox("Odaberite temu za raspravu:", aktivne_teme)
+
 
 
 # ==============================================================================
