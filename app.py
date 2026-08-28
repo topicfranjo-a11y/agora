@@ -246,22 +246,48 @@ def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
         return []
 
 # ==============================================================================
+# 5. FUNKCIJA ZA ANALIZU TEKSTA PREKO GEMINI MODELA
+# ==============================================================================
+def analiziraj_tekst_s_gemini(korisnikov_tekst):
+    """
+    Šalje tekst na analizu koristeći novi Google GenAI SDK i model gemini-2.5-flash.
+    """
+    if not ai_klijent:
+        st.error("AI klijent nije inicijaliziran. Provjerite API ključ.")
+        return None
+
+    try:
+        # Slanje zahtjeva s definiranim system_instruction parametrom
+        odgovor = ai_klijent.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=korisnikov_tekst,
+            config={
+                'system_instruction': SYSTEM_PROMPT,
+                'temperature': 0.2  # Niža temperatura za strogo praćenje strukture formata
+            }
+        )
+        return odgovor.text
+    except Exception as e:
+        st.error(f"Greška pri AI analizi: {e}")
+        return None
+
+# ==============================================================================
 # 6. IZVRŠAVANJE I STREAMLIT UI
 # ==============================================================================
-# Inicijalizacija baze podataka na startu
+# Inicijalizacija baze na startu
 inicijaliziraj_bazu()
 
-# Siguran dohvat IP adrese
+# Siguran dohvat IP adrese preko Pythona
 try:
     import requests
     ip_adresa = requests.get("https://ipify.org", timeout=2).text
 except Exception:
     ip_adresa = "127.0.0.1"
 
-# Osigurano definiranje varijable bez obzira na greške u bazi
+# Dohvaćanje ili kreiranje pseudonima iz baze
 trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
 
-# Prikaz sučelja
+# Prikaz glavnog sučelja
 st.title("🏛️ Agora Web — Protokol Uma")
 st.subheader(f"Dobrodošli natrag, **{trenutni_korisnik}**")
 
@@ -270,24 +296,7 @@ Ovaj sustav nadzire **Čuvar Agore**. Svaki uneseni tekst bit će analiziran na 
 empatiju i sintezu prije nego što bude trajno zapisan u protokole.
 """)
 
-# Ostatak tvog UI koda (selectbox, text_area, button)...
-aktivne_teme = dohvati_aktivne_teme()
-
-
-
-# ==============================================================================
-# 7. STREAMLIT KORISNIČKO SUČELJE (UI) - Ovo će odmah ukloniti prazan ekran
-# ==============================================================================
-st.title("🏛️ Agora Web — Protokol Uma")
-st.subheader(f"Dobrodošli natrag, **{trenutni_korisnik}**")
-
-# Kratke upute za korisnika
-st.markdown("""
-Ovaj sustav nadzire **Čuvar Agore**. Svaki uneseni tekst bit će analiziran na analitičnost, 
-empatiju i sintezu prije nego što bude trajno zapisan u protokole.
-""")
-
-# Izbornik za odabir teme rasprave
+# Izbornik za odabir teme rasprave (Dodan jedinstveni ključ za sprječavanje duplikata)
 aktivne_teme = dohvati_aktivne_teme()
 odabrana_tema = st.selectbox(
     "Odaberite temu za raspravu:", 
@@ -296,20 +305,16 @@ odabrana_tema = st.selectbox(
 )
 
 # Polje za unos teksta
-korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdje:", height=150, placeholder="Napišite što mislite...")
+korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdej:", height=150, placeholder="Napišite što mislite...")
 
+# Gumb za pokretanje analize (Funkcija iznad je sada vidljiva Pythonu)
 if st.button("Pošalji na analizu i pročišćavanje", type="primary"):
     if korisnikov_unos.strip() == "":
         st.warning("Molimo vas da unesete tekst prije slanja.")
     else:
         with st.spinner("Čuvar Agore analizira vašu misao..."):
-            # Ovdje pozivamo funkciju za Gemini koju smo ranije definirali
             rezultat_analize = analiziraj_tekst_s_gemini(korisnikov_unos)
             
             if rezultat_analize:
                 st.success("Analiza uspješno izvršena!")
                 st.markdown(rezultat_analize)
-                
-                # TODO: Ovdje ćemo u idućem koraku dodati parsiranje [METRIKE] i spremanje u bazu!
-
-
