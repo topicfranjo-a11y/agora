@@ -248,18 +248,19 @@ def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
 # ==============================================================================
 # 5. FUNKCIJA ZA ANALIZU TEKSTA PREKO GEMINI MODELA
 # ==============================================================================
+
 def analiziraj_tekst_s_gemini(korisnikov_tekst):
     """
-    Šalje tekst na analizu koristeći novi Google GenAI SDK i model gemini-2.5-flash.
+    Šalje tekst na analizu koristeći novi Google GenAI SDK i najnoviji model gemini-3.6-flash.
     """
     if not ai_klijent:
         st.error("AI klijent nije inicijaliziran. Provjerite API ključ.")
         return None
 
     try:
-        # Slanje zahtjeva s definiranim system_instruction parametrom
+        # POPRAVLJENO: Model je ažuriran na 'gemini-3.6-flash' prema uputama Google API-ja
         odgovor = ai_klijent.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=korisnikov_tekst,
             config={
                 'system_instruction': SYSTEM_PROMPT,
@@ -270,6 +271,7 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
     except Exception as e:
         st.error(f"Greška pri AI analizi: {e}")
         return None
+
 
 # ==============================================================================
 # 6. IZVRŠAVANJE I STREAMLIT UI
