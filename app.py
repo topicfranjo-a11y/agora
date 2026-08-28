@@ -12,7 +12,8 @@ import psycopg2
 import plotly.graph_objects as go
 from google import genai
 from google.genai import errors
-
+inicijaliziraj_bazu()
+ocisti_prazne_teme()
 # ==============================================================================
 # 2. KONFIGURACIJA STRANICE (Mora biti prva Streamlit naredba)
 # ==============================================================================
@@ -67,50 +68,90 @@ else:
 # ==============================================================================
 # 5. FUNKCIJE ZA POSTGRESQL BAZU PODATAKA
 # ==============================================================================
-def obrisi_temu(naziv_teme):
-    """Briše temu i sve njezine povezane argumente iz baze podataka."""
-    if not naziv_teme or naziv_teme == "Općenito":
-        return False, "Nije moguće obrisati zadanu temu 'Općenito'!"
+def ocisti_prazne_teme():
+    """Automatski briše neispravne i prazne teme nastale greškom u kodu."""
     try:
         conn = otvori_vezu()
         cursor = conn.cursor()
-        
-        # 1. Prvo brišemo sve argumente povezane s tom temom
-        cursor.execute("DELETE FROM argumenti WHERE tema = %s", (naziv_teme,))
-        
-        # 2. Zatim brišemo samu temu iz tablice tema
-        cursor.execute("DELETE FROM teme WHERE naziv = %s", (naziv_teme,))
-        
+        # Briše prazne prostore, doslovne stringove nastale od tuple-a i prazne tekstove
+        neispravni_nazivi = ['', ' ', '()', "('',)", "()", "None"]
+        cursor.execute("""
+            DELETE FROM teme 
+            WHERE TRIM(naziv) = '' 
+               OR naziv IS NULL 
+               OR naziv IN %s
+        """, (tuple(neispravni_nazivi),))
         conn.commit()
         cursor.close()
         conn.close()
-        return True, f"Uspješno obrisana tema '{naziv_teme}' i svi njezini argumenti."
-    except Exception as e:
-        return False, f"Greška pri brisanju: {str(e)}"
+    except Exception:
+        pass
 
-def dodaj_novu_temu(naziv_teme):
-    """Upisuje novu temu u bazu podataka ako već ne postoji."""
-    if not naziv_teme.strip():
-        return False, "Naziv teme ne može biti prazan!"
+def obrisi_temu(naziv_teme):
+    """Briše selektiranu temu i njezine argumente iz baze podataka."""
+    # Prvo pokrećemo automatsko čišćenje anomalija
+    ocisti_prazne_teme()
+    
+    if not naziv_teme or str(naziv_teme).strip() in ["", "Općenito"]:
+        return False, "Nije moguće obrisati zadanu temu 'Općenito' ili praznu temu na ovaj način!"
+        
     try:
         conn = otvori_vezu()
         cursor = conn.cursor()
         
-        # Provjera postoji li već tema
-        cursor.execute("SELECT id FROM teme WHERE naziv = %s", (naziv_teme.strip(),))
+        # Slanje čistog stringa bez skrivenih razmaka
+        cisti_naziv = str(naziv_teme).strip()
+        
+        # 1. Brisanje argumenata
+        cursor.execute("DELETE FROM argumenti WHERE tema = %s", (cisti_naziv,))
+        # 2. Brisanje teme
+        cursor.execute("DELETE FROM teme WHERE naziv = %s", (cisti_naziv,))
+        
+        conn.commit()
+        
+        # Provjera je li išta stvarno obrisano
+        broj_obrisanih = cursor.rowcount
+        cursor.close()
+        conn.close()
+        
+        if broj_obrisanih == 0:
+            return False, f"Tema '{cisti_naziv}' nije pronađena u bazi pod tim točnim nazivom."
+            
+        return True, f"Uspješno obrisana tema '{cisti_naziv}'."
+    except Exception as e:
+        return False, f"Greška pri brisanju: {str(e)}"
+
+
+def dodaj_novu_temu(naziv_teme):
+    """Sigurno upisuje novu temu i strogo odbija prazne i neispravne unose."""
+    if naziv_teme is None:
+        return False, "Naziv teme ne može biti prazan!"
+        
+    # Čišćenje ulaza
+    naziv_teme = str(naziv_teme).strip()
+    
+    # Blokada za prazne tekstove ili ostatke softverskih grešaka
+    if naziv_teme in ["", "()", "None", "('',)"]:
+        return False, "Unijeli ste nevažeći ili prazan naziv teme!"
+        
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id FROM teme WHERE LOWER(naziv) = LOWER(%s)", (naziv_teme,))
         if cursor.fetchone():
             cursor.close()
             conn.close()
             return False, "Ova tema već postoji u izborniku!"
             
-        # Unos nove teme
-        cursor.execute("INSERT INTO teme (naziv, aktivna) VALUES (%s, TRUE)", (naziv_teme.strip(),))
+        cursor.execute("INSERT INTO teme (naziv, aktivna) VALUES (%s, TRUE)", (naziv_teme,))
         conn.commit()
         cursor.close()
         conn.close()
         return True, f"Uspješno dodana tema: '{naziv_teme}'"
     except Exception as e:
         return False, f"Greška u bazi podataka: {str(e)}"
+
 
 def otvori_vezu():
     return psycopg2.connect(st.secrets["DATABASE_URL"])
