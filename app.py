@@ -75,7 +75,7 @@ def inicijaliziraj_bazu():
         conn = otvori_vezu()
         cursor = conn.cursor()
         
-        # 1. Tablica korisnika (IP + Pseudonim)
+        # 1. Tablica korisnika
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS korisnici (
                 ip_adresa TEXT PRIMARY KEY,
@@ -84,7 +84,7 @@ def inicijaliziraj_bazu():
             )
         """)
         
-        # 2. Tablica tema rasprava
+        # 2. Tablica tema
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS teme (
                 id SERIAL PRIMARY KEY,
@@ -93,10 +93,10 @@ def inicijaliziraj_bazu():
             )
         """)
         
-        # POPRAVLJENO: Prisilno brišemo staru tablicu argumenti kako bi se kreirala s novom strukturom
+        # Prisilno osvježavanje tablice kako bi imala nove metričke stupce
         cursor.execute("DROP TABLE IF EXISTS argumenti CASCADE;")
         
-        # 3. Ponovno kreiranje tablice argumenata sa SVIM ispravnim stupcima
+        # 3. Tablica argumenata s uključenom metrikom AI analize
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS argumenti (
                 id SERIAL PRIMARY KEY,
@@ -104,20 +104,22 @@ def inicijaliziraj_bazu():
                 tema TEXT NOT NULL DEFAULT 'Općenito',
                 tekst TEXT NOT NULL,
                 datum TEXT NOT NULL,
-                ton TEXT
+                ton TEXT,
+                ocjena_analitika REAL DEFAULT 0,
+                ocjena_empatija REAL DEFAULT 0,
+                ocjena_sinteza REAL DEFAULT 0,
+                ocjena_suglasje REAL DEFAULT 0
             )
         """)
         
-        # 4. Umetanje početnih tema ako je tablica prazna
+        # 4. Umetanje početnih tema (Uključujući novu temu o religiji)
         cursor.execute("SELECT COUNT(*) FROM teme")
-        rezultat = cursor.fetchone()
-        
-        if rezultat and rezultat[0] == 0:
+        if cursor.fetchone()[0] == 0:
             pocetne_teme = [
                 ("Etičke granice genetskog inženjeringa",),
                 ("Utjecaj umjetne inteligencije na privatnost",),
-                ("Budućnost decentraliziranog upravljanja društvom",)
-                ("Religija kao zabluda ili izvor nade",) 
+                ("Budućnost decentraliziranog upravljanja društvom",),
+                ("Religija kao obmana ili izvor snage",)  # Nova tema dodana ovdje
             ]
             cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
             
@@ -125,6 +127,8 @@ def inicijaliziraj_bazu():
         cursor.close()
         conn.close()
     except Exception as e:
+        st.error(f"Greška pri inicijalizaciji baze: {e}")
+
         print(f"Kritična greška u bazi podataka: {str(e)}")
         st.error("Upozorenje: Poteškoće pri povezivanju ili inicijalizaciji baze podataka.")
 
