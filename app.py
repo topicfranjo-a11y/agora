@@ -67,6 +67,30 @@ else:
 # ==============================================================================
 # 5. FUNKCIJE ZA POSTGRESQL BAZU PODATAKA
 # ==============================================================================
+def dodaj_novu_temu(naziv_teme):
+    """Upisuje novu temu u bazu podataka ako već ne postoji."""
+    if not naziv_teme.strip():
+        return False, "Naziv teme ne može biti prazan!"
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        
+        # Provjera postoji li već tema
+        cursor.execute("SELECT id FROM teme WHERE naziv = %s", (naziv_teme.strip(),))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return False, "Ova tema već postoji u izborniku!"
+            
+        # Unos nove teme
+        cursor.execute("INSERT INTO teme (naziv, aktivna) VALUES (%s, TRUE)", (naziv_teme.strip(),))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True, f"Uspješno dodana tema: '{naziv_teme}'"
+    except Exception as e:
+        return False, f"Greška u bazi podataka: {str(e)}"
+
 def otvori_vezu():
     return psycopg2.connect(st.secrets["DATABASE_URL"])
 
@@ -436,3 +460,36 @@ if st.button("Pošalji na analizu i pročišćavanje", key="gumb_za_slanje_agora
                     st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
                 else:
                     st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
+# ==============================================================================
+# 8. ADMINISTRATORSKI PANEL (Upravljanje temama)
+# ==============================================================================
+st.sidebar.markdown("---")
+with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
+    # Lozinka za pristup (Zamijenite 'agora2026' sa svojom željenom lozinkom)
+    admin_lozinka = st.text_input("Unesite administratorsku lozinku:", type="password")
+    
+    if admin_lozinka == "agora2026":
+        st.success("Pristup odobren!")
+        st.write("### Upravljanje temama rasprave")
+        
+        # Forma za dodavanje nove teme
+        nova_tema_input = st.text_input("Naziv nove teme:", placeholder="Npr. Sloboda govora vs. Govor mržnje")
+        
+        if st.button("➕ Dodaj temu u izbornik", use_container_width=True):
+            uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
+            if uspjeh:
+                st.toast(poruka, icon="✅")
+                time.sleep(1)
+                st.rerun()  # Osvježava sučelje kako bi se tema odmah pojavila u st.selectbox
+            else:
+                st.error(poruka)
+                
+        # Dodatno: Pregled trenutnih tema s mogućnošću deaktivacije (opcionalno)
+        st.write("---")
+        st.caption("Trenutno aktivne teme u bazi:")
+        trenutne_teme = dohvati_aktivne_teme()
+        for t in trenutne_teme:
+            st.text(f"• {t}")
+            
+    elif admin_lozinka != "":
+        st.error("Pogrešna lozinka. Pristup odbijen.")
