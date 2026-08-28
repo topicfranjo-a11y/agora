@@ -456,9 +456,10 @@ if st.button("Uputi na analizu"):
                 # Ekstrakcija tona i metričkih podataka
                 trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
                 
-                # POPRAVAK: Ovdje mora stajati točan naziv funkcije koja je definirana u kodu baze!
+                
+                # POPRAVAK: Sravnjeni razmaci na početku svake linije poziva funkcije
                 uspjeh = spremi_analizirani_argument(
-                    korisnik=trenutni_korisnik, # Npr. dohvaćeni pseudonim
+                    korisnik=trenutni_korisnik,
                     tema=odabrana_tema,
                     tekst=korisnikov_tekst,
                     ton=trenutni_ton,
@@ -468,7 +469,8 @@ if st.button("Uputi na analizu"):
                 if uspjeh:
                     st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
                     time.sleep(1)
-                    st.rerun() # Osvježava ekran kako bi povukao nove grafikone
+                    st.rerun()
+ # Osvježava ekran kako bi povukao nove grafikone
                     
             except Exception as e:
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
