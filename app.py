@@ -75,13 +75,58 @@ def inicijaliziraj_bazu():
         conn = otvori_vezu()
         cursor = conn.cursor()
         
-        # OBIJE REŠENJA U JEDNOM:
-        # Automatski dodajemo stupac 'korisnik' ako je tablica kreirana ranije bez njega
-        try:
-            cursor.execute("ALTER TABLE argumenti ADD COLUMN IF NOT EXISTS korisnik TEXT;")
-            conn.commit()
-        except Exception:
-            conn.rollback() # Ako baza ne podržava 'IF NOT EXISTS' za alter, idemo dalje safely
+        # 1. Tablica korisnika (IP + Pseudonim)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS korisnici (
+                ip_adresa TEXT PRIMARY KEY,
+                pseudonim TEXT NOT NULL,
+                datum_registracije TEXT NOT NULL
+            )
+        """)
+        
+        # 2. Tablica tema rasprava
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS teme (
+                id SERIAL PRIMARY KEY,
+                naziv TEXT UNIQUE NOT NULL,
+                aktivna BOOLEAN DEFAULT TRUE
+            )
+        """)
+        
+        # POPRAVLJENO: Prisilno brišemo staru tablicu argumenti kako bi se kreirala s novom strukturom
+        cursor.execute("DROP TABLE IF EXISTS argumenti CASCADE;")
+        
+        # 3. Ponovno kreiranje tablice argumenata sa SVIM ispravnim stupcima
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS argumenti (
+                id SERIAL PRIMARY KEY,
+                korisnik TEXT NOT NULL,
+                tema TEXT NOT NULL DEFAULT 'Općenito',
+                tekst TEXT NOT NULL,
+                datum TEXT NOT NULL,
+                ton TEXT
+            )
+        """)
+        
+        # 4. Umetanje početnih tema ako je tablica prazna
+        cursor.execute("SELECT COUNT(*) FROM teme")
+        rezultat = cursor.fetchone()
+        
+        if rezultat and rezultat[0] == 0:
+            pocetne_teme = [
+                ("Etičke granice genetskog inženjeringa",),
+                ("Utjecaj umjetne inteligencije na privatnost",),
+                ("Budućnost decentraliziranog upravljanja društvom",)
+            ]
+            cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Kritična greška u bazi podataka: {str(e)}")
+        st.error("Upozorenje: Poteškoće pri povezivanju ili inicijalizaciji baze podataka.")
+
         
         # 1. Tablica korisnika (IP + Pseudonim)
         cursor.execute("""
