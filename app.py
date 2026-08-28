@@ -254,13 +254,13 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
     """
     Šalje tekst na analizu koristeći novi Google GenAI SDK i najnoviji model gemini-3.6-flash.
     """
-    def parsiraj_metriku_i_status(tekst_odgovora):
+   def parsiraj_metriku_i_status(tekst_odgovora):
     """
     Izvlači JSON metriku i STATUS (ZAKLJUČANO/OTKLJUČANO) iz Gemini odgovora.
     Vraća tuple: (metrika_dict, status_string)
     """
     metrika = {"analitika": 0, "empatija": 0, "sinteza": 0, "suglasje": 0}
-    status = "ZAKLJUČANO" # Sigurnosna zadana vrijednost
+    status = "ZAKLJUČANO"  # Sigurnosna zadana vrijednost
     
     if not tekst_odgovora:
         return metrika, status
@@ -271,7 +271,7 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
             dijelovi = tekst_odgovora.split("### [METRIKA]")
             json_tekst = dijelovi[1].strip()
             
-            # Uklanjamo eventualne markdown oznake za kodove ```json ... ``` ako ih je model usprkos promptu stavio
+            # Uklanjamo eventualne markdown oznake za kodove ```json ... ``` ako ih je model stavio
             json_tekst = re.sub(r"```[a-zA-Z]*", "", json_tekst).strip()
             json_tekst = json_tekst.replace("```", "").strip()
             
@@ -287,6 +287,7 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
         st.warning(f"⚠️ Čuvar Agore je vratio nestandardan format metrike, ali tekst je obrađen.")
         
     return metrika, status
+
 
     if not ai_klijent:
         st.error("AI klijent nije inicijaliziran. Provjerite API ključ.")
