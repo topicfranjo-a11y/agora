@@ -300,11 +300,17 @@ def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
 # 6. GLOBALNE AI FUNKCIJE
 # ==============================================================================
 def analiziraj_tekst_s_gemini(korisnikov_tekst):
+    """
+    Šalje tekst na analizu koristeći službeno dostupne modele najnovije generacije.
+    Ako je primarni model (gemini-3.7-flash) preopterećen, automatski se prebacuje 
+    na stabilni zamjenski model (gemini-3.6-flash).
+    """
     if not ai_klijent:
         st.error("AI klijent nije inicijaliziran. Provjerite API ključ.")
         return None
 
-    modeli_za_pokusaj = ['gemini-3.6-flash', 'gemini-1.5-flash']
+    # POPRAVLJENO: Uklonjen umirovljeni gemini-1.5-flash i postavljeni aktualni modeli generacije 3
+    modeli_za_pokusaj = ['gemini-3.7-flash', 'gemini-3.6-flash']
 
     for trenutni_model in modeli_za_pokusaj:
         try:
@@ -318,12 +324,14 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
             )
             return odgovor.text
         except Exception as e:
-            if "503" in str(e) and trenutni_model != modeli_za_pokusaj[-1]:
+            # Ako je greška 503 (visoka potražnja) ili privremeni prekid, a imamo još modela, nastavi petlju
+            if ("503" in str(e) or "404" in str(e)) and trenutni_model != modeli_za_pokusaj[-1]:
                 continue
             else:
                 st.error(f"Greška pri AI analizi ({trenutni_model}): {e}")
                 return None
     return None
+
 
 def parsiraj_metriku_i_status(tekst_odgovora):
     metrika = {"analitika": 0, "empatija": 0, "sinteza": 0, "suglasje": 0}
