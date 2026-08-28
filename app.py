@@ -97,12 +97,57 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
 # 6. IZVRŠAVANJE I STREAMLIT UI (Primjer integracije IP adrese)
 # ==============================================================================
 # Inicijalizacija baze na startu
-inicijaliziraj_bazu()
+def inicijaliziraj_bazu():
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        
+        # 1. Tablica korisnika (IP + Pseudonim)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS korisnici (
+                ip_adresa TEXT PRIMARY KEY,
+                pseudonim TEXT NOT NULL,
+                datum_registracije TEXT NOT NULL
+            )
+        """)
+        
+        # 2. Tablica tema rasprava
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS teme (
+                id SERIAL PRIMARY KEY,
+                naziv TEXT UNIQUE NOT NULL,
+                aktivna BOOLEAN DEFAULT TRUE
+            )
+        """)
+        
+        # 3. Tablica argumenata
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS argumenti (
+                id SERIAL PRIMARY KEY,
+                korisnik TEXT NOT NULL,
+                tema TEXT NOT NULL DEFAULT 'Općenito',
+                tekst TEXT NOT NULL,
+                datum TEXT NOT NULL,
+                ton TEXT
+            )
+        """)
+        
+        # 4. Provjera i umetanje početnih tema ako je tablica prazna
+        cursor.execute("SELECT COUNT(*) FROM teme")
+        rezultat = cursor.fetchone()
+        
+        # POPRAVLJENO: Dohvaćamo vrijednost iz prve pozicije niza (tuple-a)
+        if rezultat and rezultat[0] == 0:
+            pocetne_teme = [
+                ("Etičke granice genetskog inženjeringa",),
+                ("Utjecaj umjetne informacije na privatnost",),
+                ("Budućnost decentraliziranog upravljanja društvom",)
+            ]
+            cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        st.error(f"Greška pri inicijalizaciji baze podataka: {e}")
 
-# Dohvat IP adrese preko učitane JS komponente
-json_ip = st_javascript("https://ipify.org")
-ip_adresa = "127.0.0.1"
-if json_ip and isinstance(json_ip, dict) and "ip" in json_ip:
-    ip_adresa = json_ip["ip"]
-
-trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
