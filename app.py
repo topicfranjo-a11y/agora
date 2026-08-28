@@ -427,10 +427,9 @@ if st.button("Pošalji na analizu i pročišćavanje", key="gumb_za_slanje_agora
                 else:
                     st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
 
-import plotly.graph_objects as go
-import streamlit as st
 
-# --- LAŽNE FUNKCIJE ZA DEMONSTRACIJU (Zamijeni sa svojim stvarnim funkcijama) ---
+
+# 8. --- LAŽNE FUNKCIJE ZA DEMONSTRACIJU (Zamijeni sa svojim stvarnim funkcijama) ---
 def dohvati_aktivne_teme():
     return ["Etičnost umjetne inteligencije", "Budućnost decentralizacije", "Sloboda govora"]
 
@@ -454,7 +453,7 @@ def dohvati_argumente_teme(tema):
         ("Korisnik2", "Drugi argument koji potiče sintezu.", "2026-08-28 14:30", 7.0)
     ]
 
-# --- GLAVNI DIJELOVI APLIKACIJE ---
+# 9. --- GLAVNI DIJELOVI APLIKACIJE ---
 trenutni_korisnik = "Filozof"
 
 st.title("🏛️ Agora Web — Protokol Uma")
