@@ -12,8 +12,7 @@ import psycopg2
 import plotly.graph_objects as go
 from google import genai
 from google.genai import errors
-inicijaliziraj_bazu()
-ocisti_prazne_teme()
+
 # ==============================================================================
 # 2. KONFIGURACIJA STRANICE (Mora biti prva Streamlit naredba)
 # ==============================================================================
@@ -68,6 +67,8 @@ else:
 # ==============================================================================
 # 5. FUNKCIJE ZA POSTGRESQL BAZU PODATAKA
 # ==============================================================================
+inicijaliziraj_bazu()
+ocisti_prazne_teme() 
 def ocisti_prazne_teme():
     """Automatski briše neispravne i prazne teme nastale greškom u kodu."""
     try:
