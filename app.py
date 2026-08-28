@@ -439,23 +439,43 @@ odabrana_tema = st.selectbox(
 korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdje:", height=150, placeholder="Napišite što mislite...")
 
 # Gumb za pokretanje analize i spremanje
-if st.button("Pošalji na analizu i pročišćavanje", key="gumb_za_slanje_agora"):
-    if korisnikov_unos.strip() == "":
-        st.warning("Molimo vas da unesete tekst prije slanja.")
-    else:
-        with st.spinner("Čuvar Agore analizira vašu misao i provjerava protokole..."):
-            rezultat_analize = analiziraj_tekst_s_gemini(korisnikov_unos)
-            
-            if rezultat_analize:
-                st.success("Čuvar Agore je završio analizu!")
-                st.markdown(rezultat_analize)
+if st.button("Uputi na analizu"):
+    if korisnikov_tekst.strip() and ai_klijent:
+        with st.spinner("Čuvar Agore pročišćava vašu misao..."):
+            try:
+                # Poziv Gemini API-ja
+                response = ai_klijent.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=korisnikov_tekst,
+                    config={"system_instruction": SYSTEM_PROMPT}
+                )
                 
-                # Parsiranje ocjena i statusa iz teksta
-                metrika, status = parsiraj_metriku_i_status(rezultat_analize)
-                izracunata_ocjena_tona = metrika.get("suglasje", metrika.get("analitika", 0))
+                ai_odgovor = response.text
+                st.write(ai_odgovor) # Prikaz strukturiranog teksta korisniku
+                
+                # Ekstrakcija tona i metričkih podataka
+                trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
+                
+                # POPRAVAK: Ovdje mora stajati točan naziv funkcije koja je definirana u kodu baze!
+                uspjeh = spremi_analizirani_argument(
+                    korisnik=trenutni_korisnik, # Npr. dohvaćeni pseudonim
+                    tema=odabrana_tema,
+                    tekst=korisnikov_tekst,
+                    ton=trenutni_ton,
+                    metrika_dict=metrički_podaci
+                )
+                
+                if uspjeh:
+                    st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
+                    time.sleep(1)
+                    st.rerun() # Osvježava ekran kako bi povukao nove grafikone
+                    
+            except Exception as e:
+                st.error(f"Greška tijekom komunikacije s AI: {e}")
+
                 
                 # Trajno spremanje u bazu podataka
-                spremi_argument(
+                    spremi_analizirani_argument
                     korisnik=trenutni_korisnik,
                     tema=odabrana_tema,
                     tekst=korisnikov_unos.strip(),
