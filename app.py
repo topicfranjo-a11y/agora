@@ -93,10 +93,9 @@ def inicijaliziraj_bazu():
             )
         """)
         
-        # Prisilno osvježavanje tablice kako bi imala nove metričke stupce
+        # Ostavljamo DROP i ponovno kreiranje argumenata radi nove metričke strukture
         cursor.execute("DROP TABLE IF EXISTS argumenti CASCADE;")
         
-        # 3. Tablica argumenata s uključenom metrikom AI analize
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS argumenti (
                 id SERIAL PRIMARY KEY,
@@ -112,22 +111,27 @@ def inicijaliziraj_bazu():
             )
         """)
         
-        # 4. Umetanje početnih tema (Uključujući novu temu o religiji)
-        cursor.execute("SELECT COUNT(*) FROM teme")
-        if cursor.fetchone()[0] == 0:
-            pocetne_teme = [
-                ("Etičke granice genetskog inženjeringa",),
-                ("Utjecaj umjetne inteligencije na privatnost",),
-                ("Budućnost decentraliziranog upravljanja društvom",),
-                ("Religija kao obmana ili izvor snage",)  # Nova tema dodana ovdje
-            ]
-            cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
+        # POPRAVAK: Pojedinačno umetanje tema uz provjeru konflikta (radi i na punoj bazi)
+        pocetne_teme = [
+            ("Etičke granice genetskog inženjeringa",),
+            ("Utjecaj umjetne inteligencije na privatnost",),
+            ("Budućnost decentraliziranog upravljanja društvom",),
+            ("Religija kao obmana ili izvor snage",)
+        ]
+        
+        for tema in pocetne_teme:
+            cursor.execute("""
+                INSERT INTO teme (naziv) 
+                VALUES (%s) 
+                ON CONFLICT (naziv) DO NOTHING
+            """, tema)
             
         conn.commit()
         cursor.close()
         conn.close()
     except Exception as e:
         st.error(f"Greška pri inicijalizaciji baze: {e}")
+
 
         print(f"Kritična greška u bazi podataka: {str(e)}")
         st.error("Upozorenje: Poteškoće pri povezivanju ili inicijalizaciji baze podataka.")
