@@ -169,7 +169,10 @@ def inicijaliziraj_bazu():
                 datum_registracije TEXT NOT NULL
             )
         """)
-        
+        # Na dno inicijalizacije baze ili na početak main() skripte dodajte:
+inicijaliziraj_bazu()
+ocisti_prazne_teme()  # Ova linija će sama ukloniti temu bez naslova čim se stranica osvježi!
+
         # 2. Tablica tema
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS teme (
