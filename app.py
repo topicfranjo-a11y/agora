@@ -1,21 +1,20 @@
 # ==============================================================================
-# 1. UVOZ BIBLIOTEKA (Uklonjen OpenAI)
+# 1. UVOZ BIBLIOTEKA
 # ==============================================================================
-import re
-import requests
 import os
 import time
 import json
+import re
 from datetime import datetime
+import requests
 import streamlit as st
 import psycopg2
 import plotly.graph_objects as go
 from google import genai
 from google.genai import errors
-from streamlit_javascript import st_javascript
 
 # ==============================================================================
-# 2. KONFIGURACIJA STRANICE
+# 2. KONFIGURACIJA STRANICE (Mora biti prva Streamlit naredba)
 # ==============================================================================
 st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️", layout="wide")
 
@@ -53,7 +52,7 @@ Format odgovora MORA biti strogo strukturiran u ovom obliku (nemoj koristiti mar
 """
 
 # ==============================================================================
-# 4. INICIJALIZACIJA GEMINI KLIJENTA (Samo Gemini)
+# 4. INICIJALIZACIJA GEMINI KLIJENTA
 # ==============================================================================
 ai_klijent = None
 
@@ -66,13 +65,184 @@ else:
     st.error("❌ Kritična greška: 'GEMINI_API_KEY' nije pronađen u Streamlit Secrets postavkama!")
 
 # ==============================================================================
-# 5. GLOBALNE AI FUNKCIJE (Moraju biti uz lijevi rub ekrana, iznad UI-ja!)
+# 5. FUNKCIJE ZA POSTGRESQL BAZU PODATAKA
+# ==============================================================================
+def otvori_vezu():
+    return psycopg2.connect(st.secrets["DATABASE_URL"])
+
+def inicijaliziraj_bazu():
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS korisnici (
+                ip_adresa TEXT PRIMARY KEY,
+                pseudonim TEXT NOT NULL,
+                datum_registracije TEXT NOT NULL
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS teme (
+                id SERIAL PRIMARY KEY,
+                naziv TEXT UNIQUE NOT NULL,
+                aktivna BOOLEAN DEFAULT TRUE
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS argumenti (
+                id SERIAL PRIMARY KEY,
+                korisnik TEXT NOT NULL,
+                tema TEXT NOT NULL DEFAULT 'Općenito',
+                tekst TEXT NOT NULL,
+                datum TEXT NOT NULL,
+                ton TEXT
+            )
+        """)
+        
+        cursor.execute("SELECT COUNT(*) FROM teme")
+        rezultat = cursor.fetchone()
+        
+        if rezultat and rezultat[0] == 0:
+            pocetne_teme = [
+                ("Etičke granice genetskog inženjeringa",),
+                ("Utjecaj umjetne inteligencije na privatnost",),
+                ("Budućnost decentraliziranog upravljanja društvom",)
+            ]
+            cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Kritična greška u bazi podataka: {str(e)}")
+        st.error("Upozorenje: Poteškoće pri povezivanju ili inicijalizaciji baze podataka.")
+
+def dohvati_ili_kreiraj_korisnika(ip_adresa):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("SELECT pseudonim FROM korisnici WHERE ip_adresa = %s", (ip_adresa,))
+        rezultat = cursor.fetchone()
+        
+        if rezultat:
+            pseudonim = rezultat[0]
+        else:
+            kratki_ip = ip_adresa.split(".")[-1] if ip_adresa and "." in ip_adresa else "X"
+            pseudonim = f"Građanin_{kratki_ip}_{int(time.time()) % 1000}"
+            vrijeme = datetime.now().strftime("%d.%m.%Y.")
+            cursor.execute(
+                "INSERT INTO korisnici (ip_adresa, pseudonim, datum_registracije) VALUES (%s, %s, %s)",
+                (ip_adresa, pseudonim, vrijeme)
+            )
+            conn.commit()
+            st.toast(f"🔑 Kreiran privremeni profil: {pseudonim}")
+            
+        cursor.close()
+        conn.close()
+        return str(pseudonim)
+    except Exception:
+        return "Gost_Agore"
+
+def azuriraj_pseudonim(ip_adresa, novi_pseudonim):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE korisnici SET pseudonim = %s WHERE ip_adresa = %s", (novi_pseudonim, ip_adresa))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+def dohvati_aktivne_teme():
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("SELECT naziv FROM teme WHERE aktivna = TRUE ORDER BY id ASC")
+        teme = [red[0] for red in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return teme if teme else ["Općenito"]
+    except Exception:
+        return ["Općenito"]
+
+def dodaj_novu_temu(naziv_teme):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO teme (naziv) VALUES (%s) ON CONFLICT DO NOTHING", (naziv_teme.strip(),))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+def spremi_argument(korisnik, tema, tekst, ton):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        vrijeme = datetime.now().strftime("%d.%m.%Y. u %H:%M")
+        cursor.execute(
+            "INSERT INTO argumenti (korisnik, tema, tekst, datum, ton) VALUES (%s, %s, %s, %s, %s)", 
+            (korisnik, tema, tekst, vrijeme, str(ton))
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        st.error(f"Greška pri spremanju u bazu: {e}")
+
+def dohvati_metriku_teme(tema_naziv):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("SELECT ton, korisnik FROM argumenti WHERE tema = %s", (tema_naziv,))
+        rezultati = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        if not rezultati:
+            return 0, 0
+            
+        broj_sudionika = len(set([r[1] for r in rezultati]))
+        vrijednosti = []
+        for r in rezultati:
+            try:
+                if r[0]:
+                    vrijednosti.append(float(r[0]))
+            except ValueError:
+                continue
+                
+        prosjek = round(sum(vrijednosti) / len(vrijednosti)) if vrijednosti else 0
+        return prosjek, broj_sudionika
+    except Exception:
+        return 0, 0
+
+def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        if samo_moje and trenutni_korisnik:
+            cursor.execute("SELECT korisnik, tema, tekst, datum, ton FROM argumenti WHERE korisnik = %s ORDER BY id DESC", (trenutni_korisnik,))
+        else:
+            cursor.execute("SELECT korisnik, tema, tekst, datum, ton FROM argumenti ORDER BY id DESC")
+        
+        argumenti = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return argumenti
+    except Exception:
+        return []
+
+# ==============================================================================
+# 6. GLOBALNE AI FUNKCIJE
 # ==============================================================================
 def analiziraj_tekst_s_gemini(korisnikov_tekst):
-    """
-    Šalje tekst na analizu. Ako je primarni model (gemini-3.6-flash) nedostupan (503),
-    sustav automatski prebacuje na stabilnu alternativu (gemini-1.5-flash).
-    """
     if not ai_klijent:
         st.error("AI klijent nije inicijaliziran. Provjerite API ključ.")
         return None
@@ -98,11 +268,7 @@ def analiziraj_tekst_s_gemini(korisnikov_tekst):
                 return None
     return None
 
-
 def parsiraj_metriku_i_status(tekst_odgovora):
-    """
-    Izvlači JSON metriku i STATUS (ZAKLJUČANO/OTKLJUČANO) iz Gemini odgovora.
-    """
     metrika = {"analitika": 0, "empatija": 0, "sinteza": 0, "suglasje": 0}
     status = "ZAKLJUČANO"
     
@@ -110,140 +276,71 @@ def parsiraj_metriku_i_status(tekst_odgovora):
         return metrika, status
 
     try:
-        # 1. Izvlačenje JSON-a iz sekcije ### [METRIKA]
         if "### [METRIKA]" in tekst_odgovora:
             dijelovi = tekst_odgovora.split("### [METRIKA]")
             if len(dijelovi) > 1:
-                json_tekst = dijelovi[1].strip()
-                import re
-                json_tekst = re.sub(r"```[a-zA-Z]*", "", json_tekst).strip()
-                json_tekst = json_tekst.replace("```", "").strip()
-                metrika = json.loads(json_tekst)
-            
-        # 2. Izvlačenje statusa iz sekcije ### [STATUS]
-        import re
-        status_meč = re.search(r"### \[STATUS\]\s*\n*(ZAKLJUČANO|OTKLJUČANO)", tekst_odgovora, re.IGNORECASE)
-        if status_meč:
-            status = status_meč.group(1).upper().strip()
-            
-    except Exception as e:
-        st.warning("⚠️ Čuvar Agore je vratio nestandardan format metrike, ali tekst je obrađen.")
-        
-    return metrika, status
 
-# ==============================================================================
-# 6. GLAVNO IZVRŠAVANJE I STREAMLIT UI
-# ==============================================================================
-# Inicijalizacija baze na startu
-def inicijaliziraj_bazu():
-    try:
-        conn = otvori_vezu()
-        cursor = conn.cursor()
-        
-        # 1. Tablica korisnika (IP + Pseudonim)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS korisnici (
-                ip_adresa TEXT PRIMARY KEY,
-                pseudonim TEXT NOT NULL,
-                datum_registracije TEXT NOT NULL
-            )
-        """)
-        
-        # 2. Tablica tema rasprava
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS teme (
-                id SERIAL PRIMARY KEY,
-                naziv TEXT UNIQUE NOT NULL,
-                aktivna BOOLEAN DEFAULT TRUE
-            )
-        """)
-        
-        # 3. Tablica argumenata
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS argumenti (
-                id SERIAL PRIMARY KEY,
-                korisnik TEXT NOT NULL,
-                tema TEXT NOT NULL DEFAULT 'Općenito',
-                tekst TEXT NOT NULL,
-                datum TEXT NOT NULL,
-                ton TEXT
-            )
-        """)
-        
-        # 4. Provjera i umetanje početnih tema ako je tablica prazna
-        cursor.execute("SELECT COUNT(*) FROM teme")
-        rezultat = cursor.fetchone()
-        
-        # POPRAVLJENO: Točno čitanje nultog indeksa iz tuple-a (rezultat[0])
-        if rezultat and rezultat[0] == 0:
-            pocetne_teme = [
-                ("Etičke granice genetskog inženjeringa",),
-                ("Utjecaj umjetne inteligencije na privatnost",),
-                ("Budućnost decentraliziranog upravljanja društvom",)
-            ]
-            cursor.executemany("INSERT INTO teme (naziv) VALUES (%s)", pocetne_teme)
-            
-        conn.commit()
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        # Prikazujemo stvarnu grešku u konzolu poslužitelja (ili Streamlit Cloud logove)
-        print(f"Kritična greška u bazi podataka: {str(e)}")
-        # Ne dozvoljavamo rušenje aplikacije na ekranu korisnika
-        st.error("Upozorenje: Poteškoće pri povezivanju ili inicijalizaciji baze podataka.")
-
-
-# Dohvaćanje ili kreiranje pseudonima iz baze
+json_tekst = dijelovi[1].strip()
+json_tekst = re.sub(r"[a-zA-Z]*", "", json_tekst).strip() json_tekst = json_tekst.replace("", "").strip()
+metrika = json.loads(json_tekst)
+status_mec = re.search(r"### $$STATUS$$ \s*\n*(ZAKLJUČANO|OTKLJUČANO)", tekst_odgovora, re.IGNORECASE)
+if status_mec:
+status = status_mec.group(1).upper().strip()
+except Exception:
+st.warning("⚠️ Čuvar Agore je vratio nestandardan format metrike, ali tekst je obrađen.")
+return metrika, status
+==============================================================================
+7. GLAVNO IZVRŠAVANJE I STREAMLIT UI
+==============================================================================
+Inicijalizacija baze na startu
+inicijaliziraj_bazu()
+Siguran dohvat IP adrese
+try:
+ip_adresa = requests.get("ipify.org", timeout=2).text
+except Exception:
+ip_adresa = "127.0.0.1"
+Dohvaćanje ili kreiranje pseudonima iz baze
 trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
-
-# Prikaz glavnog sučelja
+Prikaz glavnog sučelja
 st.title("🏛️ Agora Web — Protokol Uma")
-st.subheader(f"Dobrodošli natrag, **{trenutni_korisnik}**")
-
+st.subheader(f"Dobrodošli natrag, {trenutni_korisnik}")
 st.markdown("""
-Ovaj sustav nadzire **Čuvar Agore**. Svaki uneseni tekst bit će analiziran na analitičnost, 
+Ovaj sustav nadzire Čuvar Agore. Svaki uneseni tekst bit će analiziran na analitičnost,
 empatiju i sintezu prije nego što bude trajno zapisan u protokole.
 """)
-
-# Izbornik za odabir teme rasprave
+Izbornik za odabir teme rasprave
 aktivne_teme = dohvati_aktivne_teme()
 odabrana_tema = st.selectbox(
-    "Odaberite temu za raspravu:", 
-    aktivne_teme, 
-    key="selectbox_izbor_teme_agora"
+"Odaberite temu za raspravu:",
+aktivne_teme,
+key="selectbox_izbor_teme_agora"
 )
-
-# Polje za unos teksta
+Polje za unos teksta
 korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdje:", height=150, placeholder="Napišite što mislite...")
-
-# Gumb za pokretanje analize i spremanje (Sve funkcije iznad su sada vidljive!)
+Gumb za pokretanje analize i spremanje
 if st.button("Pošalji na analizu i pročišćavanje", key="gumb_za_slanje_agora"):
-    if korisnikov_unos.strip() == "":
-        st.warning("Molimo vas da unesete tekst prije slanja.")
-    else:
-        with st.spinner("Čuvar Agore analizira vašu misao i provjerava protokole..."):
-            rezultat_analize = analiziraj_tekst_s_gemini(korisnikov_unos)
-            
-            if rezultat_analize:
-                st.success("Čuvar Agore je završio analizu!")
-                st.markdown(rezultat_analize)
-                
-                # Parsiranje ocjena i statusa iz teksta
-                metrika, status = parsiraj_metriku_i_status(rezultat_analize)
-                izracunata_ocjena_tona = metrika.get("suglasje", metrika.get("analitika", 0))
-                
-                # Trajno spremanje u bazu podataka
-                spremi_argument(
-                    korisnik=trenutni_korisnik,
-                    tema=odabrana_tema,
-                    tekst=korisnikov_unos.strip(),
-                    ton=izracunata_ocjena_tona
-                )
-                
-                # Prikaz vizualnog statusa pročišćavanja
-                st.divider()
-                if status == "OTKLJUČANO":
-                    st.balloons()
-                    st.success("🔓 **PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO):** Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
-                else:
-                    st.error("🔒 **BLOKADA (ZAKLJUČANO):** Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
+if korisnikov_unos.strip() == "":
+st.warning("Molimo vas da unesete tekst prije slanja.")
+else:
+with st.spinner("Čuvar Agore analizira vašu misao i provjerava protokole..."):
+rezultat_analize = analiziraj_tekst_s_gemini(korisnikov_unos)
+if rezultat_analize:
+st.success("Čuvar Agore je završio analizu!")
+st.markdown(rezultat_analize)
+# Parsiranje ocjena i statusa iz teksta
+metrika, status = parsiraj_metriku_i_status(rezultat_analize)
+izracunata_ocjena_tona = metrika.get("suglasje", metrika.get("analitika", 0))
+# Trajno spremanje u bazu podataka
+spremi_argument(
+korisnik=trenutni_korisnik,
+tema=odabrana_tema,
+tekst=korisnikov_unos.strip(),
+ton=izracunata_ocjena_tona
+)
+# Prikaz vizualnog statusa pročišćavanja
+st.divider()
+if status == "OTKLJUČANO":
+st.balloons()
+st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
+else:
+st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
