@@ -250,43 +250,50 @@ def azuriraj_pseudonim(ip_adresa, novi_pseudonim):
         return False
 
 def dohvati_aktivne_teme():
+    """Dohvaća isključivo tekstualne nazive tema iz baze."""
     try:
         conn = otvori_vezu()
         cursor = conn.cursor()
         cursor.execute("SELECT naziv FROM teme WHERE aktivna = TRUE ORDER BY id ASC")
+        # POPRAVAK: Uzimamo prvi element red[0] kako bismo dobili čisti tekst, a ne tuple (red,)
         teme = [red[0] for red in cursor.fetchall()]
         cursor.close()
         conn.close()
-        return teme if teme else ["Općenito"]
+        return teme
     except Exception:
         return ["Općenito"]
 
 def dodaj_novu_temu(naziv_teme):
-    try:
-        conn = otvori_vezu()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO teme (naziv) VALUES (%s) ON CONFLICT DO NOTHING", (naziv_teme.strip(),))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return True
-    except Exception:
-        return False
+    """Upisuje novu temu u bazu podataka uz provjeru tipa podataka."""
+    # POPRAVAK: Ako je iz bilo kojeg razloga proslijeđen tuple ili krivac, pretvaramo ga u string
+    if isinstance(naziv_teme, (tuple, list)) and len(naziv_teme) > 0:
+        naziv_teme = str(naziv_teme[0])
+    else:
+        naziv_teme = str(naziv_teme)
 
-def spremi_argument(korisnik, tema, tekst, ton):
+    if not naziv_teme.strip():
+        return False, "Naziv teme ne može biti prazan!"
+        
     try:
         conn = otvori_vezu()
         cursor = conn.cursor()
-        vrijeme = datetime.now().strftime("%d.%m.%Y. u %H:%M")
-        cursor.execute(
-            "INSERT INTO argumenti (korisnik, tema, tekst, datum, ton) VALUES (%s, %s, %s, %s, %s)", 
-            (korisnik, tema, tekst, vrijeme, str(ton))
-        )
+        
+        # Provjera postoji li već tema
+        cursor.execute("SELECT id FROM teme WHERE naziv = %s", (naziv_teme.strip(),))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return False, "Ova tema već postoji u izborniku!"
+            
+        # Unos nove teme
+        cursor.execute("INSERT INTO teme (naziv, aktivna) VALUES (%s, TRUE)", (naziv_teme.strip(),))
         conn.commit()
         cursor.close()
         conn.close()
+        return True, f"Uspješno dodana tema: '{naziv_teme.strip()}'"
     except Exception as e:
-        st.error(f"Greška pri spremanju u bazu: {e}")
+        return False, f"Greška u bazi podataka: {str(e)}"
+
 
 def dohvati_metriku_teme(tema_naziv):
     try:
