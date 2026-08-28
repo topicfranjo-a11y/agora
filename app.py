@@ -290,7 +290,11 @@ empatiju i sintezu prije nego što bude trajno zapisan u protokole.
 
 # Izbornik za odabir teme rasprave
 aktivne_teme = dohvati_aktivne_teme()
-odabrana_tema = st.selectbox("Odaberite temu za raspravu:", aktivne_teme)
+odabrana_tema = st.selectbox(
+    "Odaberite temu za raspravu:", 
+    aktivne_teme, 
+    key="selectbox_izbor_teme_agora"
+)
 
 # Polje za unos teksta
 korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdje:", height=150, placeholder="Napišite što mislite...")
