@@ -194,7 +194,7 @@ def inicijaliziraj_bazu():
 
 
 # Dohvaćanje ili kreiranje pseudonima iz baze
-trenutni_korisnik = dohvati_ili_creiraj_korisnika(ip_adresa)
+trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
 
 # Prikaz glavnog sučelja
 st.title("🏛️ Agora Web — Protokol Uma")
