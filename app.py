@@ -276,29 +276,16 @@ def parsiraj_metriku_i_status(tekst_odgovora):
         return metrika, status
 
     try:
-        if "### [METRIKA]" in tekst_odgovora:
-            dijelovi = tekst_odgovora.split("### [METRIKA]")
-            if len(dijelovi) > 1:
-
-def parsiraj_metriku_i_status(tekst_odgovora):
-    metrika = {"analitika": 0, "empatija": 0, "sinteza": 0, "suglasje": 0}
-    status = "ZAKLJUČANO"
-    
-    if not tekst_odgovora:
-        return metrika, status
-
-    try:
         # 1. Izvlačenje JSON-a iz sekcije ### [METRIKA]
         if "### [METRIKA]" in tekst_odgovora:
             dijelovi = tekst_odgovora.split("### [METRIKA]")
             if len(dijelovi) > 1:
                 json_tekst = dijelovi[1].strip()
-                # POPRAVLJENO: Ispravljen regex za micanje ```json oznaka i prelazak u novi red
                 json_tekst = re.sub(r"```[a-zA-Z]*", "", json_tekst).strip()
                 json_tekst = json_tekst.replace("```", "").strip()
                 metrika = json.loads(json_tekst)
             
-        # POPRAVLJENO: Ispravljen regex da traži uglate zagrade \[STATUS\] umrezo $$STATUS$$
+        # 2. Izvlačenje statusa iz sekcije ### [STATUS]
         status_mec = re.search(r"### \[STATUS\]\s*\n*(ZAKLJUČANO|OTKLJUČANO)", tekst_odgovora, re.IGNORECASE)
         if status_mec:
             status = status_mec.group(1).upper().strip()
@@ -316,7 +303,6 @@ inicijaliziraj_bazu()
 
 # Siguran dohvat IP adrese
 try:
-    # POPRAVLJENO: Dodan puni HTTPS protokol i API poddomena za ipify
     ip_adresa = requests.get("https://ipify.org", timeout=2).text
 except Exception:
     ip_adresa = "127.0.0.1"
@@ -375,4 +361,3 @@ if st.button("Pošalji na analizu i pročišćavanje", key="gumb_za_slanje_agora
                     st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
                 else:
                     st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
-
