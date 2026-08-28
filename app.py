@@ -204,8 +204,7 @@ def inicijaliziraj_bazu():
             ("Budućnost decentraliziranog upravljanja društvom",),
             ("Religija kao obmana ili izvor snage",)
         ]
-        inicijaliziraj_bazu()
-        ocisti_prazne_teme() 
+       
         for tema in pocetne_teme:
             cursor.execute("""
                 INSERT INTO teme (naziv) 
