@@ -435,14 +435,21 @@ odabrana_tema = st.selectbox(
     key="selectbox_izbor_teme_agora"
 )
 
-# Polje za unos teksta
-korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdje:", height=150, placeholder="Napišite što mislite...")
 
-# Gumb za pokretanje analize i spremanje
+# 1. Polje za unos mora definirati varijablu pod nazivom 'korisnikov_tekst'
+korisnikov_tekst = st.text_area(
+    "Unesite svoju misao za Čuvara Agore:", 
+    placeholder="Napišite svoj argument ovdje..."
+)
+
+# 2. Gumb za slanje na analizu
 if st.button("Uputi na analizu"):
+    # Sada ova provjera više neće bacati NameError jer varijabla iznad postoji
     if korisnikov_tekst.strip() and ai_klijent:
         with st.spinner("Čuvar Agore pročišćava vašu misao..."):
             try:
+                # ... (ostatak koda za poziv Gemini API-ja i spremanje) ...
+
                 # Poziv Gemini API-ja
                 response = ai_klijent.models.generate_content(
                     model='gemini-2.5-flash',
