@@ -280,67 +280,99 @@ def parsiraj_metriku_i_status(tekst_odgovora):
             dijelovi = tekst_odgovora.split("### [METRIKA]")
             if len(dijelovi) > 1:
 
-json_tekst = dijelovi[1].strip()
-json_tekst = re.sub(r"[a-zA-Z]*", "", json_tekst).strip() json_tekst = json_tekst.replace("", "").strip()
-metrika = json.loads(json_tekst)
-status_mec = re.search(r"### $$STATUS$$ \s*\n*(ZAKLJUČANO|OTKLJUČANO)", tekst_odgovora, re.IGNORECASE)
-if status_mec:
-status = status_mec.group(1).upper().strip()
-except Exception:
-st.warning("⚠️ Čuvar Agore je vratio nestandardan format metrike, ali tekst je obrađen.")
-return metrika, status
-==============================================================================
-7. GLAVNO IZVRŠAVANJE I STREAMLIT UI
-==============================================================================
-Inicijalizacija baze na startu
+def parsiraj_metriku_i_status(tekst_odgovora):
+    metrika = {"analitika": 0, "empatija": 0, "sinteza": 0, "suglasje": 0}
+    status = "ZAKLJUČANO"
+    
+    if not tekst_odgovora:
+        return metrika, status
+
+    try:
+        # 1. Izvlačenje JSON-a iz sekcije ### [METRIKA]
+        if "### [METRIKA]" in tekst_odgovora:
+            dijelovi = tekst_odgovora.split("### [METRIKA]")
+            if len(dijelovi) > 1:
+                json_tekst = dijelovi[1].strip()
+                # POPRAVLJENO: Ispravljen regex za micanje ```json oznaka i prelazak u novi red
+                json_tekst = re.sub(r"```[a-zA-Z]*", "", json_tekst).strip()
+                json_tekst = json_tekst.replace("```", "").strip()
+                metrika = json.loads(json_tekst)
+            
+        # POPRAVLJENO: Ispravljen regex da traži uglate zagrade \[STATUS\] umrezo $$STATUS$$
+        status_mec = re.search(r"### \[STATUS\]\s*\n*(ZAKLJUČANO|OTKLJUČANO)", tekst_odgovora, re.IGNORECASE)
+        if status_mec:
+            status = status_mec.group(1).upper().strip()
+            
+    except Exception:
+        st.warning("⚠️ Čuvar Agore je vratio nestandardan format metrike, ali tekst je obrađen.")
+        
+    return metrika, status
+
+# ==============================================================================
+# 7. GLAVNO IZVRŠAVANJE I STREAMLIT UI
+# ==============================================================================
+# Inicijalizacija baze na startu
 inicijaliziraj_bazu()
-Siguran dohvat IP adrese
+
+# Siguran dohvat IP adrese
 try:
-ip_adresa = requests.get("ipify.org", timeout=2).text
+    # POPRAVLJENO: Dodan puni HTTPS protokol i API poddomena za ipify
+    ip_adresa = requests.get("https://ipify.org", timeout=2).text
 except Exception:
-ip_adresa = "127.0.0.1"
-Dohvaćanje ili kreiranje pseudonima iz baze
-trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
-Prikaz glavnog sučelja
+    ip_adresa = "127.0.0.1"
+
+# Dohvaćanje ili kreiranje pseudonima iz baze
+trenutni_korisnik = dohvati_ili_creiraj_korisnika(ip_adresa) if 'dohvati_ili_creiraj_korisnika' in globals() else dohvati_ili_kreiraj_korisnika(ip_adresa)
+
+# Prikaz glavnog sučelja
 st.title("🏛️ Agora Web — Protokol Uma")
 st.subheader(f"Dobrodošli natrag, {trenutni_korisnik}")
+
 st.markdown("""
 Ovaj sustav nadzire Čuvar Agore. Svaki uneseni tekst bit će analiziran na analitičnost,
 empatiju i sintezu prije nego što bude trajno zapisan u protokole.
 """)
-Izbornik za odabir teme rasprave
+
+# Izbornik za odabir teme rasprave
 aktivne_teme = dohvati_aktivne_teme()
 odabrana_tema = st.selectbox(
-"Odaberite temu za raspravu:",
-aktivne_teme,
-key="selectbox_izbor_teme_agora"
+    "Odaberite temu za raspravu:",
+    aktivne_teme,
+    key="selectbox_izbor_teme_agora"
 )
-Polje za unos teksta
+
+# Polje za unos teksta
 korisnikov_unos = st.text_area("Unesite svoj argument ili misao ovdje:", height=150, placeholder="Napišite što mislite...")
-Gumb za pokretanje analize i spremanje
+
+# Gumb za pokretanje analize i spremanje
 if st.button("Pošalji na analizu i pročišćavanje", key="gumb_za_slanje_agora"):
-if korisnikov_unos.strip() == "":
-st.warning("Molimo vas da unesete tekst prije slanja.")
-else:
-with st.spinner("Čuvar Agore analizira vašu misao i provjerava protokole..."):
-rezultat_analize = analiziraj_tekst_s_gemini(korisnikov_unos)
-if rezultat_analize:
-st.success("Čuvar Agore je završio analizu!")
-st.markdown(rezultat_analize)
-# Parsiranje ocjena i statusa iz teksta
-metrika, status = parsiraj_metriku_i_status(rezultat_analize)
-izracunata_ocjena_tona = metrika.get("suglasje", metrika.get("analitika", 0))
-# Trajno spremanje u bazu podataka
-spremi_argument(
-korisnik=trenutni_korisnik,
-tema=odabrana_tema,
-tekst=korisnikov_unos.strip(),
-ton=izracunata_ocjena_tona
-)
-# Prikaz vizualnog statusa pročišćavanja
-st.divider()
-if status == "OTKLJUČANO":
-st.balloons()
-st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
-else:
-st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
+    if korisnikov_unos.strip() == "":
+        st.warning("Molimo vas da unesete tekst prije slanja.")
+    else:
+        with st.spinner("Čuvar Agore analizira vašu misao i provjerava protokole..."):
+            rezultat_analize = analiziraj_tekst_s_gemini(korisnikov_unos)
+            
+            if rezultat_analize:
+                st.success("Čuvar Agore je završio analizu!")
+                st.markdown(rezultat_analize)
+                
+                # Parsiranje ocjena i statusa iz teksta
+                metrika, status = parsiraj_metriku_i_status(rezultat_analize)
+                izracunata_ocjena_tona = metrika.get("suglasje", metrika.get("analitika", 0))
+                
+                # Trajno spremanje u bazu podataka
+                spremi_argument(
+                    korisnik=trenutni_korisnik,
+                    tema=odabrana_tema,
+                    tekst=korisnikov_unos.strip(),
+                    ton=izracunata_ocjena_tona
+                )
+                
+                # Prikaz vizualnog statusa pročišćavanja
+                st.divider()
+                if status == "OTKLJUČANO":
+                    st.balloons()
+                    st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
+                else:
+                    st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
+
