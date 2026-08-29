@@ -522,19 +522,23 @@ if st.button("Uputi na analizu"):
                 )
                 
                 ai_odgovor = response.text
-                st.write(ai_odgovor) # Prikaz strukturiranog teksta korisniku
+                st.session_state.zadnji_ai_odgovor = ai_odgovor 
                 
-                # Ekstrakcija tona i metričkih podataka
-                trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
+                # POPRAVAK: Koristimo novu funkciju koja izvlači suglasje i status
+                metrički_podaci, status = parsiraj_metriku_i_status(ai_odgovor)
+                
+                # Budući da nova funkcija ne vraća ton, postavljamo ga ručno ili izdvajamo po potrebi
+                trenutni_ton = "Analizirano" 
                 
                 # Poziv funkcije za spremanje
                 uspjeh = spremi_analizirani_argument(
-                    korisnik=trenutni_korisnik,
-                    tema=odabrana_tema,
-                    tekst=korisnikov_tekst,
-                    ton=trenutni_ton,
-                    metrika_dict=metrički_podaci
+                    trenutni_korisnik, 
+                    odabrana_tema, 
+                    korisnikov_tekst, 
+                    trenutni_ton, 
+                    metrički_podaci  # Sada sadrži analitiku, empatiju, sintezu i suglasje
                 )
+
                 
                 if uspjeh:
                     st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
@@ -563,26 +567,24 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
     
     # 1. Zasebna istaknuta sekcija za ZADNJU analizu (Moderni kontejner)
-    with st.container(border=True):
-        st.markdown("### 🔍 Zadnja analiza Čuvara Agore")
+        with st.container(border=True):
+             st.markdown(f"### {txt['zadnja_analiza']}")
+             st.markdown(f"**{txt['unesena_misao']}**\n> *{zadnji_zapis.get('tekst', '')}*")
         
-        # Prikaz teksta koji je analiziran u obliku citata
-        tekst_misli = zadnji_zapis.get('tekst', 'Nema teksta')
-        st.markdown(f"**Unesena misao:**\n> *{tekst_misli}*")
+        # Prikazujemo i status pročišćavanja ako postoji u zapisu
+             st.markdown(f"🎭 **Status:** `{status}`")
         
-        # Prikaz Tona s vizualnom značkom (badge)
-        st.markdown(f"**Emocionalni ton:** `{ton_za_prikaz}`")
-        
-        # Dinamički prikaz metrika u stupcima pomoću st.metric kartica
         if metrike_za_prikaz:
-            st.markdown("**Analitičke ocjene:**")
-            # Stvaramo onoliko stupaca koliko ima metričkih pokazatelja (Logika, Retorika...)
-            stupci = st.columns(len(metrike_za_prikaz))
+            st.markdown(f"**{txt['analiticke_ocjene']}**")
             
+            # Dinamički stvaramo stupce za sve metrike (uključujući suglasje)
+            stupci = st.columns(len(metrike_za_prikaz))
             for i, (kljuc, vrijednost) in enumerate(metrike_za_prikaz.items()):
                 with stupci[i]:
-                    # Prikazuje lijepu karticu s nazivom metrike i ocjenom (npr. 8/10)
-                    st.metric(label=kljuc, value=f"{vrijednost} / 10")
+                    # Pretvaramo prvo slovo u veliko radi ljepšeg izgleda (npr. suglasje -> Suglasje)
+                    naziv_metrike = kljuc.capitalize()
+                    st.metric(label=naziv_metrike, value=f"{vrijednost} / 10")
+
         else:
             st.info("Metrički podaci nisu dostupni za ovaj zapis.")
 
