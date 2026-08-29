@@ -526,7 +526,6 @@ if st.button("Uputi na analizu"):
                 if uspjeh:
                     st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
                     time.sleep(1)
-                    st.rerun() # Osvježava ekran
                     
             except Exception as e:
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
