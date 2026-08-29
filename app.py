@@ -566,7 +566,20 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     ton_za_prikaz = zadnji_zapis.get('ton', zadnji_zapis.get('Ton', 'Neutralan'))
     metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
     
-    # 1. Zasebna istaknuta sekcija za ZADNJU analizu (Moderni kontejner)
+# POPRAVAK: Osiguravamo da 'txt' uvijek postoji na glavnoj razini prije prikaza povijesti
+if "jezik" not in st.session_state:
+    st.session_state.jezik = "HR"
+
+# Dohvaćanje prijevoda iz rječnika PRIJEVODI koji ste ranije definirali
+txt = PRIJEVODI[st.session_state.jezik]
+
+# VAŠ POSTOJEĆI KOD OD LINIJE 572 NADALJE:
+if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
+    st.markdown("---")
+    st.subheader(txt["kolektivna_analitika"])
+    
+    # ... ostatak koda za kontejner i metrike ...
+
 # Prikaz povijesti i analitike (NA GLAVNOJ RAZINI STRANICE - IZVAN GUMBA)
 if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     st.markdown("---")
