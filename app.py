@@ -459,12 +459,29 @@ if st.button("Uputi na analizu"):
                 
                 ai_odgovor = response.text
                 st.write(ai_odgovor) # Prikaz strukturiranog teksta korisniku
-                
+def ekstrahiraj_podatke_iz_odgovora(ai_odgovor):
+    """
+    Ekstrahira ton i metričke podatke iz strukturiranog AI odgovora.
+    Vraća (trenutni_ton, metrički_podaci).
+    """
+    # Zadane (fallback) vrijednosti ako ekstrakcija ne uspije
+    trenutni_ton = "Neutralan"
+    metrički_podaci = {"Logika": 5, "Retorika": 5, "Objektivnost": 5}
+    
+    if not ai_odgovor:
+        return trenutni_ton, metrički_podaci
+
+    try:
+        # 1. Pokušaj pronalaženja JSON bloka unutar odgovora (ako AI vrati JSON)
+        json_match = re.search(r'\{.*\}', ai_odgovor, re.DOTALL)
+        if json_match:
+            podaci = json.loads(json_match.group(0))
+            # Prilagodite ključeve ovisno o tome što vaš SYSTEM_PROMPT traži od AI-ja
+            trenutni_ton = podaci.get("ton", podaci.get("Ton", trenutni_ton))
+            metrički_podaci = podaci.get("metrika", podaci.get("metrike", metrički_podaci))
+            return trenutni_ton, metrički_podaci
                 # Ekstrakcija tona i metričkih podataka
-                trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
-                
-                
-                # POPRAVAK: Sravnjeni razmaci na početku svake linije poziva funkcije
+         
                 uspjeh = spremi_analizirani_argument(
                     korisnik=trenutni_korisnik,
                     tema=odabrana_tema,
