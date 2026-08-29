@@ -351,47 +351,60 @@ def dodaj_novu_temu(naziv_teme):
         return False, f"Greška u bazi podataka: {str(e)}"
 
 
+import logging
+
 def dohvati_metriku_teme(tema_naziv):
+    """
+    Izračunava prosjek tona (baza obavlja izračun) i broj jedinstvenih sudionika.
+    Vraća (prosjek, broj_sudionika).
+    """
     try:
-        conn = otvori_vezu()
-        cursor = conn.cursor()
-        cursor.execute("SELECT ton, korisnik FROM argumenti WHERE tema = %s", (tema_naziv,))
-        rezultati = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        
-        if not rezultati:
-            return 0, 0
-            
-        broj_sudionika = len(set([r[1] for r in rezultati]))
-        vrijednosti = []
-        for r in rezultati:
-            try:
-                if r[0]:
-                    vrijednosti.append(float(r[0]))
-            except ValueError:
-                continue
+        with otvori_vezu() as conn:
+            with conn.cursor() as cursor:
+                # 1. Broj sudionika na temi
+                cursor.execute("SELECT COUNT(DISTINCT korisnik) FROM argumenti WHERE tema = %s", (tema_naziv,))
+                broj_sudionika = cursor.fetchone()[0] or 0
                 
+                # 2. Dohvaćanje tonova za izračun prosjeka (ako su spremljeni kao tekst, pretvaramo u float u SQL-u)
+                cursor.execute("SELECT ton FROM argumenti WHERE tema = %s AND ton IS NOT NULL", (tema_naziv,))
+                rezultati = cursor.fetchall()
+                
+        if not rezultati:
+            return 0, broj_sudionika
+            
+        # Sigurna pretvorba u float pomoću List Comprehension-a (čišći izgled petlje)
+        vrijednosti = [float(r[0]) for r in rezultati if r[0] and r[0].replace('.', '', 1).isdigit()]
+        
         prosjek = round(sum(vrijednosti) / len(vrijednosti)) if vrijednosti else 0
         return prosjek, broj_sudionika
-    except Exception:
+        
+    except Exception as e:
+        logging.error(f"Greška u dohvati_metriku_teme: {e}")
         return 0, 0
 
+
 def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
-    try:
-        conn = otvori_vezu()
-        cursor = conn.cursor()
-        if samo_moje and trenutni_korisnik:
-            cursor.execute("SELECT korisnik, tema, tekst, datum, ton FROM argumenti WHERE korisnik = %s ORDER BY id DESC", (trenutni_korisnik,))
-        else:
-            cursor.execute("SELECT korisnik, tema, tekst, datum, ton FROM argumenti ORDER BY id DESC")
+    """
+    Dohvaća argumente iz baze. Koristi 'with' blokove za automatsko zatvaranje veza.
+    """
+    query = "SELECT korisnik, tema, tekst, datum, ton FROM argumenti"
+    params = ()
+    
+    if samo_moje and trenutni_korisnik:
+        query += " WHERE korisnik = %s"
+        params = (trenutni_korisnik,)
         
-        argumenti = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return argumenti
-    except Exception:
+    query += " ORDER BY id DESC"
+    
+    try:
+        with otvori_vezu() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                return cursor.fetchall()
+    except Exception as e:
+        logging.error(f"Greška u dohvati_argumente: {e}")
         return []
+
 
 # ==============================================================================
 # 6. GLOBALNE AI FUNKCIJE
