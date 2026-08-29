@@ -640,9 +640,9 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     # Prikazujemo zadnju unesenu misao i njezinu analizu
        zadnji_zapis = st.session_state.baza_argumenata[-1]
     
-    with st.expander("🔍 Pogledaj zadnju analizu", expanded=True):
-        st.write(f"**Ton:** {zadnji_zapis['ton']}")
-        st.write("**Metrike:**", zadnji_zapis['metrika'])
+with st.expander("🔍 Pogledaj zadnju analizu", expanded=True):
+     st.write(f"**Ton:** {zadnji_zapis['ton']}")
+     st.write("**Metrike:**", zadnji_zapis['metrika'])
         
     # Ovdje možete dodati vaš postojeći kod za iscrtavanje grafikona
     # koji koristi podatke iz st.session_state.baza_argumenata
