@@ -471,12 +471,9 @@ korisnikov_tekst = st.text_area(
 
 # 2. Gumb za slanje na analizu
 if st.button("Uputi na analizu"):
-    # Sada ova provjera više neće bacati NameError jer varijabla iznad postoji
     if korisnikov_tekst.strip() and ai_klijent:
         with st.spinner("Čuvar Agore pročišćava vašu misao..."):
             try:
-                # ... (ostatak koda za poziv Gemini API-ja i spremanje) ...
-
                 # Poziv Gemini API-ja
                 response = ai_klijent.models.generate_content(
                     model='gemini-3.6-flash',
@@ -486,19 +483,11 @@ if st.button("Uputi na analizu"):
                 
                 ai_odgovor = response.text
                 st.write(ai_odgovor) # Prikaz strukturiranog teksta korisniku
-
-
-    try:
-        # 1. Pokušaj pronalaženja JSON bloka unutar odgovora (ako AI vrati JSON)
-        json_match = re.search(r'\{.*\}', ai_odgovor, re.DOTALL)
-        if json_match:
-            podaci = json.loads(json_match.group(0))
-            # Prilagodite ključeve ovisno o tome što vaš SYSTEM_PROMPT traži od AI-ja
-            trenutni_ton = podaci.get("ton", podaci.get("Ton", trenutni_ton))
-            metrički_podaci = podaci.get("metrika", podaci.get("metrike", metrički_podaci))
-            return trenutni_ton, metrički_podaci
+                
                 # Ekstrakcija tona i metričkih podataka
-         
+                trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
+                
+                # Poziv funkcije za spremanje
                 uspjeh = spremi_analizirani_argument(
                     korisnik=trenutni_korisnik,
                     tema=odabrana_tema,
@@ -510,7 +499,11 @@ if st.button("Uputi na analizu"):
                 if uspjeh:
                     st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
                     time.sleep(1)
-                    st.rerun()
+                    st.rerun() # Osvježava ekran
+                    
+            except Exception as e:
+                st.error(f"Greška tijekom komunikacije s AI: {e}")
+
  # Osvježava ekran kako bi povukao nove grafikone
                     
             except Exception as e:
