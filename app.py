@@ -41,6 +41,7 @@ def ekstrahiraj_podatke_iz_odgovora(ai_odgovor):
         
     return trenutni_ton, metrički_podaci
 
+
 def spremi_analizirani_argument(korisnik, tema, tekst, ton, metrika_dict):
     """
     Sprema analizirani argument u Streamlit Session State (ili bazu podataka).
@@ -66,7 +67,6 @@ def spremi_analizirani_argument(korisnik, tema, tekst, ton, metrika_dict):
     except Exception as e:
         st.error(f"Greška pri spremanju argumenta: {e}")
         return False
-
 # ==============================================================================
 # 2. KONFIGURACIJA STRANICE (Mora biti prva Streamlit naredba)
 # ==============================================================================
