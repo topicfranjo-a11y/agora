@@ -586,11 +586,12 @@ if st.button("Uputi na analizu sada"):
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
 
 
-if status == "OTKLJUČANO":
-        st.balloons()
-        st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
-else:
-        st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
+# POPRAVAK: Provjeravamo postoji li varijabla prije nego je upotrijebimo
+if "status" in locals() and status == "OTKLJUČANO":
+    st.balloons()
+    st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
+elif "status" in locals():
+    st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
 
 # Prikaz povijesti i analitike (izvan gumba, vidljivo uvijek)
                 
