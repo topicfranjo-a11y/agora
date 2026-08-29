@@ -541,20 +541,53 @@ elif "status" in locals():
 # Prikaz povijesti i analitike (izvan gumba, vidljivo uvijek)
                 
 if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
+    st.markdown("---")
     st.subheader("📊 Kolektivna analitika i povijest misli")
     
-    # Prikazujemo zadnju unesenu misao i njezinu analizu
+    # Dohvaćamo zadnji zapis
     zadnji_zapis = st.session_state.baza_argumenata[-1]
+    ton_za_prikaz = zadnji_zapis.get('ton', zadnji_zapis.get('Ton', 'Neutralan'))
+    metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
     
-    # POPRAVAK: Ovaj blok je sada ispravno uvučen unutar IF uvjeta
-    with st.expander("🔍 Pogledaj zadnju analizu", expanded=True):
-        # POPRAVAK: Sigurno dohvaćanje koje provjerava i 'ton' i 'Ton'
-        ton_za_prikaz = zadnji_zapis.get('ton', zadnji_zapis.get('Ton', 'Neutralan'))
-        st.write(f"**Ton:** {ton_za_prikaz}")
+    # 1. Zasebna istaknuta sekcija za ZADNJU analizu (Moderni kontejner)
+    with st.container(border=True):
+        st.markdown("### 🔍 Zadnja analiza Čuvara Agore")
         
-        # Sigurno dohvaćanje metričkih podataka
-        metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
-        st.write("**Metrike:**", metrike_za_prikaz)
+        # Prikaz teksta koji je analiziran u obliku citata
+        tekst_misli = zadnji_zapis.get('tekst', 'Nema teksta')
+        st.markdown(f"**Unesena misao:**\n> *{tekst_misli}*")
+        
+        # Prikaz Tona s vizualnom značkom (badge)
+        st.markdown(f"**Emocionalni ton:** `{ton_za_prikaz}`")
+        
+        # Dinamički prikaz metrika u stupcima pomoću st.metric kartica
+        if metrike_za_prikaz:
+            st.markdown("**Analitičke ocjene:**")
+            # Stvaramo onoliko stupaca koliko ima metričkih pokazatelja (Logika, Retorika...)
+            stupci = st.columns(len(metrike_za_prikaz))
+            
+            for i, (kljuc, vrijednost) in enumerate(metrike_za_prikaz.items()):
+                with stupci[i]:
+                    # Prikazuje lijepu karticu s nazivom metrike i ocjenom (npr. 8/10)
+                    st.metric(label=kljuc, value=f"{vrijednost} / 10")
+        else:
+            st.info("Metrički podaci nisu dostupni za ovaj zapis.")
+
+    # 2. Arhiva/Povijest svih prethodnih misli (Zatvoreno u Expanderu da ne zatrpava ekran)
+    with st.expander("📚 Pregledaj cjelokupnu arhivu misli", expanded=False):
+        # Prikazujemo misli od najnovije prema najstarijoj (obrnuti redoslijed)
+        for indeks, zapis in enumerate(reversed(st.session_state.baza_argumenata[:-1])):
+            st.markdown(f"**Misao #{len(st.session_state.baza_argumenata) - 1 - indeks}**")
+            st.caption(f"Tema: {zapis.get('tema', 'Općenito')} | Korisnik: {zapis.get('korisnik', 'Anonimno')}")
+            st.markdown(f"> *{zapis.get('tekst', '')}*")
+            st.markdown(f"**Ton:** `{zapis.get('ton', zapis.get('Ton', 'Neutralan'))}`")
+            
+            # Kratki tekstualni prikaz metrika za povijest
+            m = zapis.get('metrika', zapis.get('metrike', {}))
+            metrike_tekst = " | ".join([f"{k}: {v}" for k, v in m.items()])
+            st.markdown(f"**Rezultati:** *{metrike_tekst}*")
+            st.divider()
+
 
         
 # ==============================================================================
