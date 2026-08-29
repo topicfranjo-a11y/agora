@@ -536,7 +536,7 @@ if st.button("Uputi na analizu"):
             except Exception as e:
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
 # 2. Gumb za slanje na analizu
-if st.button("Uputi na analizu"):
+if st.button("Uputi na analizu sada"):
     if korisnikov_tekst.strip() and ai_klijent:
         with st.spinner("Čuvar Agore pročišćava vašu misao..."):
             try:
