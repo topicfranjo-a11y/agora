@@ -531,60 +531,6 @@ if st.button("Uputi na analizu"):
             except Exception as e:
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
 
- # Osvježava ekran kako bi povukao nove grafikone
-                    
-            except Exception as e:
-                st.error(f"Greška tijekom komunikacije s AI: {e}")
-# 2. Gumb za slanje na analizu
-# 2. Gumb za slanje na analizu
-if st.button("Uputi na analizu sada"):
-    if korisnikov_tekst.strip() and ai_klijent:
-        with st.spinner("Čuvar Agore pročišćava vašu misao..."):
-            try:
-                # Poziv Gemini API-ja
-                response = ai_klijent.models.generate_content(
-                    model='gemini-3.6-flash',
-                    contents=korisnikov_tekst,
-                    config={"system_instruction": SYSTEM_PROMPT}
-                )
-                
-                ai_odgovor = response.text
-                
-                # Privremeno spremamo odgovor u session state da ne nestane nakon st.rerun()
-                st.session_state.zadnji_ai_odgovor = ai_odgovor 
-                
-                # Ekstrakcija tona i metričkih podataka
-                trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
-                
-                # Određivanje statusa na temelju metričkih podataka
-                procijenjena_logika = metrički_podaci.get("Logika", 5)
-                status = "OTKLJUČANO" if procijenjena_logika >= 5 else "ZAKLJUČANO"
-                
-                # Poziv funkcije za spremanje (rješava NameError za 'uspjeh')
-                uspjeh = spremi_analizirani_argument(
-                    trenutni_korisnik, 
-                    odabrana_tema, 
-                    korisnikov_tekst, 
-                    trenutni_ton, 
-                    metrički_podaci
-                )
-                
-                if uspjeh:
-                    st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
-                    
-                    st.divider()
-                    if status == "OTKLJUČANO":
-                        st.balloons()
-                        st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore!")
-                    else:
-                        st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti.")
-                    
-                    time.sleep(2)
-                    st.rerun()
-                    
-            except Exception as e:
-                st.error(f"Greška tijekom komunikacije s AI: {e}")
-
 
 # POPRAVAK: Provjeravamo postoji li varijabla prije nego je upotrijebimo
 if "status" in locals() and status == "OTKLJUČANO":
