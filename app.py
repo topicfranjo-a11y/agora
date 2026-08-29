@@ -542,19 +542,22 @@ elif "status" in locals():
 # Prikaz povijesti i analitike (izvan gumba, vidljivo uvijek)
                 
 if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
-       st.subheader("📊 Kolektivna analitika i povijest misli")
+    st.subheader("📊 Kolektivna analitika i povijest misli")
     
     # Prikazujemo zadnju unesenu misao i njezinu analizu
-       zadnji_zapis = st.session_state.baza_argumenata[-1]
+    zadnji_zapis = st.session_state.baza_argumenata[-1]
     
-with st.expander("🔍 Pogledaj zadnju analizu", expanded=True):
-     st.write(f"**ton:** {zadnji_zapis['ton']}")
-     st.write("**Metrike:**", zadnji_zapis['metrika'])
+    # POPRAVAK: Ovaj blok je sada ispravno uvučen unutar IF uvjeta
+    with st.expander("🔍 Pogledaj zadnju analizu", expanded=True):
+        # POPRAVAK: Sigurno dohvaćanje koje provjerava i 'ton' i 'Ton'
+        ton_za_prikaz = zadnji_zapis.get('ton', zadnji_zapis.get('Ton', 'Neutralan'))
+        st.write(f"**Ton:** {ton_za_prikaz}")
         
-    # Ovdje možete dodati vaš postojeći kod za iscrtavanje grafikona
-    # koji koristi podatke iz st.session_state.baza_argumenata
+        # Sigurno dohvaćanje metričkih podataka
+        metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
+        st.write("**Metrike:**", metrike_za_prikaz)
 
-
+        
 # ==============================================================================
 # 8. ADMINISTRATORSKI PANEL (Upravljanje temama - Nadograđeno)
 # ==============================================================================
