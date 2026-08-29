@@ -535,6 +535,84 @@ if st.button("Uputi na analizu"):
                     
             except Exception as e:
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
+# 2. Gumb za slanje na analizu
+if st.button("Uputi na analizu"):
+    if korisnikov_tekst.strip() and ai_klijent:
+        with st.spinner("Čuvar Agore pročišćava vašu misao..."):
+            try:
+                # Poziv Gemini API-ja
+                response = ai_klijent.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=korisnikov_tekst,
+                    config={"system_instruction": SYSTEM_PROMPT}
+                )
+                
+                ai_odgovor = response.text
+                
+                # Privremeno spremamo odgovor u session state da ne nestane nakon st.rerun()
+                st.session_state.zadnji_ai_odgovor = ai_odgovor 
+                
+                # Ekstrakcija tona i metričkih podataka
+                trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
+                
+                # Određivanje statusa na temelju metričkih podataka (npr. logika > 5)
+                # Prilagodite ovo pravilo vašim stvarnim potrebama
+                procijenjena_logika = metrički_podaci.get("Logika", 5)
+                status = "OTKLJUČANO" if procijenjena_logika >= 5 else "ZAKLJUČANO"
+                
+                # Poziv funkcije za spremanje
+                uspjeh = spremi_analizirani_argument(
+                    trenutni_korisnik, 
+                    odabrana_tema, 
+                    korisnikov_tekst, 
+                    trenutni_ton, 
+                    metrički_podaci
+                )
+                
+                if uspjeh:
+                    st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
+                    
+                    # Prikaz vizualnog statusa pročišćavanja prije osvježavanja ekrana
+                    st.divider()
+                    if status == "OTKLJUČANO":
+                        st.balloons()
+                        st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore!")
+                    else:
+                        st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti.")
+                    
+                    # Kratka pauza da korisnik vidi balone i poruku, pa osvježavanje grafikona
+                    time.sleep(2)
+                    st.rerun()
+                    
+            except Exception as e:
+                st.error(f"Greška tijekom komunikacije s AI: {e}")
+
+# =====================================================================
+# PRIKAZ POVIJESTI I ANALITIKE (Izvan gumba - vidljivo uvijek i nakon st.rerun())
+# =====================================================================
+st.divider()
+
+# Prikaz zadnjeg sirovog AI odgovora ako postoji u memoriji
+if "zadnji_ai_odgovor" in st.session_state:
+    with st.chat_message("assistant"):
+        st.write("**Trenutna analiza Čuvara:**")
+        st.write(st.session_state.zadnji_ai_odgovor)
+
+# Prikaz povijesti iz baze argumenata
+if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
+    st.subheader("📊 Kolektivna analitika i povijest misli")
+    
+    # Prikazujemo zadnju unesenu misao i njezinu analizu
+    zadnji_zapis = st.session_state.baza_argumenata[-1]
+    
+    with st.expander("🔍 Pogledaj zadnju analizu u bazi", expanded=True):
+        st.write(f"**Tema:** {zadnji_zapis['tema']}")
+        st.write(f"**Tekst:** *{zadnji_zapis['tekst']}*")
+        st.write(f"**Ton:** {zadnji_zapis['ton']}")
+        st.write("**Metrike:**", zadnji_zapis['metrika'])
+        
+    # OVDJE MOŽETE DODATI VAŠ POSTOJEĆI KOD ZA ISCRTAVANJE GRAFIKONA
+    # koji koristi podatke iz st.session_state.baza_argumenata
 
                 
                                # Ekstrakcija tona i metričkih podataka
