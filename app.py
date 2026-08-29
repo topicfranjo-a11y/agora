@@ -629,16 +629,16 @@ if uspjeh:
 if status == "OTKLJUČANO":
         st.balloons()
         st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
-                else:
-                    st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
+else:
+        st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
 
 # Prikaz povijesti i analitike (izvan gumba, vidljivo uvijek)
                 
-                if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
-    st.subheader("📊 Kolektivna analitika i povijest misli")
+if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
+       st.subheader("📊 Kolektivna analitika i povijest misli")
     
     # Prikazujemo zadnju unesenu misao i njezinu analizu
-    zadnji_zapis = st.session_state.baza_argumenata[-1]
+       zadnji_zapis = st.session_state.baza_argumenata[-1]
     
     with st.expander("🔍 Pogledaj zadnju analizu", expanded=True):
         st.write(f"**Ton:** {zadnji_zapis['ton']}")
