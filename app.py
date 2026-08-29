@@ -452,7 +452,7 @@ if st.button("Uputi na analizu"):
 
                 # Poziv Gemini API-ja
                 response = ai_klijent.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.6-flash',
                     contents=korisnikov_tekst,
                     config={"system_instruction": SYSTEM_PROMPT}
                 )
