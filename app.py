@@ -573,20 +573,32 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
         else:
             st.info("Metrički podaci nisu dostupni za ovaj zapis.")
 
-    # 2. Arhiva/Povijest svih prethodnih misli (Zatvoreno u Expanderu da ne zatrpava ekran)
+       # 2. Arhiva/Povijest svih prethodnih misli (Sada uključuje sve zapise)
     with st.expander("📚 Pregledaj cjelokupnu arhivu misli", expanded=False):
-        # Prikazujemo misli od najnovije prema najstarijoj (obrnuti redoslijed)
-        for indeks, zapis in enumerate(reversed(st.session_state.baza_argumenata[:-1])):
-            st.markdown(f"**Misao #{len(st.session_state.baza_argumenata) - 1 - indeks}**")
-            st.caption(f"Tema: {zapis.get('tema', 'Općenito')} | Korisnik: {zapis.get('korisnik', 'Anonimno')}")
-            st.markdown(f"> *{zapis.get('tekst', '')}*")
-            st.markdown(f"**Ton:** `{zapis.get('ton', zapis.get('Ton', 'Neutralan'))}`")
+        # Uzimamo sve zapise i okrećemo redoslijed da najnoviji bude na vrhu
+        sve_misli = list(reversed(st.session_state.baza_argumenata))
+        ukupno_zapisa = len(sve_misli)
+        
+        for indeks, zapis in enumerate(sve_misli):
+            # Računamo stvarni redni broj misli iz baze
+            redni_broj = ukupno_zapisa - indeks
             
-            # Kratki tekstualni prikaz metrika za povijest
-            m = zapis.get('metrika', zapis.get('metrike', {}))
-            metrike_tekst = " | ".join([f"{k}: {v}" for k, v in m.items()])
-            st.markdown(f"**Rezultati:** *{metrike_tekst}*")
-            st.divider()
+            # Koristimo st.chat_message ili manji uokvireni kontejner za svaku stariju misao
+            with st.container(border=True):
+                st.markdown(f"### 🧠 Misao #{redni_broj}")
+                st.caption(f"👥 **Autor:** {zapis.get('korisnik', 'Anonimno')} | 📌 **Tema:** {zapis.get('tema', 'Općenito')}")
+                
+                st.markdown(f"**Argument:**\n> *{zapis.get('tekst', '')}*")
+                
+                # Prikaz tona i kratkih rezultata
+                t_ton = zapis.get('ton', zapis.get('Ton', 'Neutralan'))
+                m_metrike = zapis.get('metrika', zapis.get('metrike', {}))
+                metrike_linija = "  •  ".join([f"**{k}**: {v}/10" for k, v in m_metrike.items()])
+                
+                st.markdown(f"🎭 **Ton:** `{t_ton}`")
+                if metrike_linija:
+                    st.markdown(f"📈 **Analitika:** {metrike_linija}")
+
 
 
         
