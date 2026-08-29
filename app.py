@@ -567,23 +567,38 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
     
     # 1. Zasebna istaknuta sekcija za ZADNJU analizu (Moderni kontejner)
-        with st.container(border=True):
-             st.markdown(f"### {txt['zadnja_analiza']}")
-             st.markdown(f"**{txt['unesena_misao']}**\n> *{zadnji_zapis.get('tekst', '')}*")
+# Prikaz povijesti i analitike (NA GLAVNOJ RAZINI STRANICE - IZVAN GUMBA)
+if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
+    st.markdown("---")
+    st.subheader(txt["kolektivna_analitika"])
+    
+    # Dohvaćamo zadnji zapis
+    zadnji_zapis = st.session_state.baza_argumenata[-1]
+    metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
+    
+
+# Prikaz povijesti i analitike (NA GLAVNOJ RAZINI STRANICE - IZVAN GUMBA)
+if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
+    st.markdown("---")
+    st.subheader(txt["kolektivna_analitika"])
+    
+    # Dohvaćamo zadnji zapis
+    zadnji_zapis = st.session_state.baza_argumenata[-1]
+    metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
+    
+    # POPRAVAK LINIJE 570: Točno 4 razmaka s lijeve strane (poravnato sa zadnji_zapis)
+    with st.container(border=True):
+        st.markdown(f"### {txt['zadnja_analiza']}")
+        st.markdown(f"**{txt['unesena_misao']}**\n> *{zadnji_zapis.get('tekst', '')}*")
         
-        # Prikazujemo i status pročišćavanja ako postoji u zapisu
-             st.markdown(f"🎭 **Status:** `{status}`")
-        
+        # Dinamički stupci za prikaz svih metrika (uključujući suglasje)
         if metrike_za_prikaz:
             st.markdown(f"**{txt['analiticke_ocjene']}**")
-            
-            # Dinamički stvaramo stupce za sve metrike (uključujući suglasje)
             stupci = st.columns(len(metrike_za_prikaz))
             for i, (kljuc, vrijednost) in enumerate(metrike_za_prikaz.items()):
                 with stupci[i]:
-                    # Pretvaramo prvo slovo u veliko radi ljepšeg izgleda (npr. suglasje -> Suglasje)
-                    naziv_metrike = kljuc.capitalize()
-                    st.metric(label=naziv_metrike, value=f"{vrijednost} / 10")
+                    st.metric(label=kljuc.capitalize(), value=f"{vrijednost} / 10")
+
 
         else:
             st.info("Metrički podaci nisu dostupni za ovaj zapis.")
