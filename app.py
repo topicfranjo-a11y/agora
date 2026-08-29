@@ -585,8 +585,7 @@ if st.button("Uputi na analizu sada"):
             except Exception as e:
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
 
-# Prikaz vizualnog statusa pročišćavanja
-        st.divider()
+
 if status == "OTKLJUČANO":
         st.balloons()
         st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
