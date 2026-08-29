@@ -125,15 +125,14 @@ else:
 
 def obrisi_temu(naziv_teme):
     """Briše selektiranu temu i njezine argumente iz baze podataka."""
-    # Privremeno isključeno jer funkcija nije definirana
-    # ocisti_prazne_teme() 
+    # Ako nemate definiranu funkciju ocisti_prazne_teme(), 
+    # ostavite je zakomentiranu s '#' kako ne biste dobili NameError
+    # ocisti_prazne_teme()
     
     if not naziv_teme or str(naziv_teme).strip() in ["", "Općenito"]:
         return False, "Nije moguće obrisati zadanu temu 'Općenito' ili praznu temu na ovaj način!"
-# ... ostatak koda ostaje isti ...
-
         
-        try:
+    try:
         conn = otvori_vezu()
         cursor = conn.cursor()
         
@@ -158,6 +157,7 @@ def obrisi_temu(naziv_teme):
         return True, f"Uspješno obrisana tema '{cisti_naziv}'."
     except Exception as e:
         return False, f"Greška pri brisanju: {str(e)}"
+
 
 
 def dodaj_novu_temu(naziv_teme):
