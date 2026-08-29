@@ -558,7 +558,7 @@ if st.button("Uputi na analizu"):
                     st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
 
 # Prikaz povijesti i analitike (izvan gumba, vidljivo uvijek)
-                )
+                
                 if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     st.subheader("📊 Kolektivna analitika i povijest misli")
     
