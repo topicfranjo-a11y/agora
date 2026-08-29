@@ -549,14 +549,13 @@ if st.button("Uputi na analizu"):
                 
                 ai_odgovor = response.text
                 
-                # Privremeno spremamo odgovor u session state da ne nestane nakon st.rerun()
+                # Privremeno spremamo odgovor u session state
                 st.session_state.zadnji_ai_odgovor = ai_odgovor 
                 
                 # Ekstrakcija tona i metričkih podataka
                 trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
                 
-                # Određivanje statusa na temelju metričkih podataka (npr. logika > 5)
-                # Prilagodite ovo pravilo vašim stvarnim potrebama
+                # Određivanje statusa
                 procijenjena_logika = metrički_podaci.get("Logika", 5)
                 status = "OTKLJUČANO" if procijenjena_logika >= 5 else "ZAKLJUČANO"
                 
@@ -572,7 +571,6 @@ if st.button("Uputi na analizu"):
                 if uspjeh:
                     st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
                     
-                    # Prikaz vizualnog statusa pročišćavanja prije osvježavanja ekrana
                     st.divider()
                     if status == "OTKLJUČANO":
                         st.balloons()
@@ -580,12 +578,12 @@ if st.button("Uputi na analizu"):
                     else:
                         st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti.")
                     
-                    # Kratka pauza da korisnik vidi balone i poruku, pa osvježavanje grafikona
                     time.sleep(2)
                     st.rerun()
                     
             except Exception as e:
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
+
 
 # =====================================================================
 # PRIKAZ POVIJESTI I ANALITIKE (Izvan gumba - vidljivo uvijek i nakon st.rerun())
