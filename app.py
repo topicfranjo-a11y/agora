@@ -12,7 +12,34 @@ import psycopg2
 import plotly.graph_objects as go
 from google import genai
 from google.genai import errors
-
+def ekstrahiraj_podatke_iz_odgovora(ai_odgovor):
+    """Ekstrahira ton i metričke podatke iz strukturiranog AI odgovora."""
+    trenutni_ton = "Neutralan"
+    metrički_podaci = {"Logika": 5, "Retorika": 5, "Objektivnost": 5}
+    
+    if not ai_odgovor:
+        return trenutni_ton, metrički_podaci
+    try:
+        json_match = re.search(r'\{.*\}', ai_odgovor, re.DOTALL)
+        if json_match:
+            podaci = json.loads(json_match.group(0))
+            trenutni_ton = podaci.get("ton", podaci.get("Ton", trenutni_ton))
+            metrički_podaci = podaci.get("metrika", podaci.get("metrike", metrički_podaci))
+            return trenutni_ton, metrički_podaci
+        
+        lines = ai_odgovor.split("\n")
+        for line in lines:
+            if "ton:" in line.lower():
+                trenutni_ton = line.split(":")[-1].strip().strip('"').strip("'")
+            for kljuc in metrički_podaci.keys():
+                if kljuc.lower() in line.lower():
+                    brojevi = re.findall(r'\d+', line)
+                    if brojevi:
+                        metrički_podaci[kljuc] = int(brojevi[0])
+    except Exception:
+        pass
+        
+    return trenutni_ton, metrički_podaci
 # ==============================================================================
 # 2. KONFIGURACIJA STRANICE (Mora biti prva Streamlit naredba)
 # ==============================================================================
@@ -459,17 +486,7 @@ if st.button("Uputi na analizu"):
                 
                 ai_odgovor = response.text
                 st.write(ai_odgovor) # Prikaz strukturiranog teksta korisniku
-def ekstrahiraj_podatke_iz_odgovora(ai_odgovor):
-    """
-    Ekstrahira ton i metričke podatke iz strukturiranog AI odgovora.
-    Vraća (trenutni_ton, metrički_podaci).
-    """
-    # Zadane (fallback) vrijednosti ako ekstrakcija ne uspije
-    trenutni_ton = "Neutralan"
-    metrički_podaci = {"Logika": 5, "Retorika": 5, "Objektivnost": 5}
-    
-    if not ai_odgovor:
-        return trenutni_ton, metrički_podaci
+
 
     try:
         # 1. Pokušaj pronalaženja JSON bloka unutar odgovora (ako AI vrati JSON)
