@@ -351,60 +351,47 @@ def dodaj_novu_temu(naziv_teme):
         return False, f"Greška u bazi podataka: {str(e)}"
 
 
-import logging
-
 def dohvati_metriku_teme(tema_naziv):
-    """
-    Izračunava prosjek tona (baza obavlja izračun) i broj jedinstvenih sudionika.
-    Vraća (prosjek, broj_sudionika).
-    """
     try:
-        with otvori_vezu() as conn:
-            with conn.cursor() as cursor:
-                # 1. Broj sudionika na temi
-                cursor.execute("SELECT COUNT(DISTINCT korisnik) FROM argumenti WHERE tema = %s", (tema_naziv,))
-                broj_sudionika = cursor.fetchone()[0] or 0
-                
-                # 2. Dohvaćanje tonova za izračun prosjeka (ako su spremljeni kao tekst, pretvaramo u float u SQL-u)
-                cursor.execute("SELECT ton FROM argumenti WHERE tema = %s AND ton IS NOT NULL", (tema_naziv,))
-                rezultati = cursor.fetchall()
-                
-        if not rezultati:
-            return 0, broj_sudionika
-            
-        # Sigurna pretvorba u float pomoću List Comprehension-a (čišći izgled petlje)
-        vrijednosti = [float(r[0]) for r in rezultati if r[0] and r[0].replace('.', '', 1).isdigit()]
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("SELECT ton, korisnik FROM argumenti WHERE tema = %s", (tema_naziv,))
+        rezultati = cursor.fetchall()
+        cursor.close()
+        conn.close()
         
+        if not rezultati:
+            return 0, 0
+            
+        broj_sudionika = len(set([r[1] for r in rezultati]))
+        vrijednosti = []
+        for r in rezultati:
+            try:
+                if r[0]:
+                    vrijednosti.append(float(r[0]))
+            except ValueError:
+                continue
+                
         prosjek = round(sum(vrijednosti) / len(vrijednosti)) if vrijednosti else 0
         return prosjek, broj_sudionika
-        
-    except Exception as e:
-        logging.error(f"Greška u dohvati_metriku_teme: {e}")
+    except Exception:
         return 0, 0
 
-
 def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
-    """
-    Dohvaća argumente iz baze. Koristi 'with' blokove za automatsko zatvaranje veza.
-    """
-    query = "SELECT korisnik, tema, tekst, datum, ton FROM argumenti"
-    params = ()
-    
-    if samo_moje and trenutni_korisnik:
-        query += " WHERE korisnik = %s"
-        params = (trenutni_korisnik,)
-        
-    query += " ORDER BY id DESC"
-    
     try:
-        with otvori_vezu() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(query, params)
-                return cursor.fetchall()
-    except Exception as e:
-        logging.error(f"Greška u dohvati_argumente: {e}")
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        if samo_moje and trenutni_korisnik:
+            cursor.execute("SELECT korisnik, tema, tekst, datum, ton FROM argumenti WHERE korisnik = %s ORDER BY id DESC", (trenutni_korisnik,))
+        else:
+            cursor.execute("SELECT korisnik, tema, tekst, datum, ton FROM argumenti ORDER BY id DESC")
+        
+        argumenti = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return argumenti
+    except Exception:
         return []
-
 
 # ==============================================================================
 # 6. GLOBALNE AI FUNKCIJE
@@ -522,23 +509,19 @@ if st.button("Uputi na analizu"):
                 )
                 
                 ai_odgovor = response.text
-                st.session_state.zadnji_ai_odgovor = ai_odgovor 
+                st.write(ai_odgovor) # Prikaz strukturiranog teksta korisniku
                 
-                # POPRAVAK: Koristimo novu funkciju koja izvlači suglasje i status
-                metrički_podaci, status = parsiraj_metriku_i_status(ai_odgovor)
-                
-                # Budući da nova funkcija ne vraća ton, postavljamo ga ručno ili izdvajamo po potrebi
-                trenutni_ton = "Analizirano" 
+                # Ekstrakcija tona i metričkih podataka
+                trenutni_ton, metrički_podaci = ekstrahiraj_podatke_iz_odgovora(ai_odgovor)
                 
                 # Poziv funkcije za spremanje
                 uspjeh = spremi_analizirani_argument(
-                    trenutni_korisnik, 
-                    odabrana_tema, 
-                    korisnikov_tekst, 
-                    trenutni_ton, 
-                    metrički_podaci  # Sada sadrži analitiku, empatiju, sintezu i suglasje
+                    korisnik=trenutni_korisnik,
+                    tema=odabrana_tema,
+                    tekst=korisnikov_tekst,
+                    ton=trenutni_ton,
+                    metrika_dict=metrički_podaci
                 )
-
                 
                 if uspjeh:
                     st.success("Vaša misao je uspješno obrađena i upisana u kolektivnu analitiku!")
@@ -566,53 +549,27 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     ton_za_prikaz = zadnji_zapis.get('ton', zadnji_zapis.get('Ton', 'Neutralan'))
     metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
     
-# POPRAVAK: Osiguravamo da 'txt' uvijek postoji na glavnoj razini prije prikaza povijesti
-if "jezik" not in st.session_state:
-    st.session_state.jezik = "HR"
-
-# Dohvaćanje prijevoda iz rječnika PRIJEVODI koji ste ranije definirali
-txt = PRIJEVODI[st.session_state.jezik]
-
-# VAŠ POSTOJEĆI KOD OD LINIJE 572 NADALJE:
-if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
-    st.markdown("---")
-    st.subheader(txt["kolektivna_analitika"])
-    
-    # ... ostatak koda za kontejner i metrike ...
-
-# Prikaz povijesti i analitike (NA GLAVNOJ RAZINI STRANICE - IZVAN GUMBA)
-if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
-    st.markdown("---")
-    st.subheader(txt["kolektivna_analitika"])
-    
-    # Dohvaćamo zadnji zapis
-    zadnji_zapis = st.session_state.baza_argumenata[-1]
-    metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
-    
-
-# Prikaz povijesti i analitike (NA GLAVNOJ RAZINI STRANICE - IZVAN GUMBA)
-if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
-    st.markdown("---")
-    st.subheader(txt["kolektivna_analitika"])
-    
-    # Dohvaćamo zadnji zapis
-    zadnji_zapis = st.session_state.baza_argumenata[-1]
-    metrike_za_prikaz = zadnji_zapis.get('metrika', zadnji_zapis.get('metrike', {}))
-    
-    # POPRAVAK LINIJE 570: Točno 4 razmaka s lijeve strane (poravnato sa zadnji_zapis)
+    # 1. Zasebna istaknuta sekcija za ZADNJU analizu (Moderni kontejner)
     with st.container(border=True):
-        st.markdown(f"### {txt['zadnja_analiza']}")
-        st.markdown(f"**{txt['unesena_misao']}**\n> *{zadnji_zapis.get('tekst', '')}*")
+        st.markdown("### 🔍 Zadnja analiza Čuvara Agore")
         
-        # Dinamički stupci za prikaz svih metrika (uključujući suglasje)
+        # Prikaz teksta koji je analiziran u obliku citata
+        tekst_misli = zadnji_zapis.get('tekst', 'Nema teksta')
+        st.markdown(f"**Unesena misao:**\n> *{tekst_misli}*")
+        
+        # Prikaz Tona s vizualnom značkom (badge)
+        st.markdown(f"**Emocionalni ton:** `{ton_za_prikaz}`")
+        
+        # Dinamički prikaz metrika u stupcima pomoću st.metric kartica
         if metrike_za_prikaz:
-            st.markdown(f"**{txt['analiticke_ocjene']}**")
+            st.markdown("**Analitičke ocjene:**")
+            # Stvaramo onoliko stupaca koliko ima metričkih pokazatelja (Logika, Retorika...)
             stupci = st.columns(len(metrike_za_prikaz))
+            
             for i, (kljuc, vrijednost) in enumerate(metrike_za_prikaz.items()):
                 with stupci[i]:
-                    st.metric(label=kljuc.capitalize(), value=f"{vrijednost} / 10")
-
-
+                    # Prikazuje lijepu karticu s nazivom metrike i ocjenom (npr. 8/10)
+                    st.metric(label=kljuc, value=f"{vrijednost} / 10")
         else:
             st.info("Metrički podaci nisu dostupni za ovaj zapis.")
 
