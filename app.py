@@ -40,6 +40,33 @@ def ekstrahiraj_podatke_iz_odgovora(ai_odgovor):
         pass
         
     return trenutni_ton, metrički_podaci
+
+def spremi_analizirani_argument(korisnik, tema, tekst, ton, metrika_dict):
+    """
+    Sprema analizirani argument u Streamlit Session State (ili bazu podataka).
+    Prilagodite ovaj kod ako koristite pravu bazu podataka (SQL, Firebase i sl.).
+    """
+    try:
+        # Inicijalizacija baze u session state-u ako ne postoji
+        if "baza_argumenata" not in st.session_state:
+            st.session_state.baza_argumenata = []
+            
+        # Kreiranje zapisa
+        novi_zapis = {
+            "korisnik": korisnik,
+            "tema": tema,
+            "tekst": tekst,
+            "ton": ton,
+            "metrika": metrika_dict
+        }
+        
+        # Spremanje zapisa
+        st.session_state.baza_argumenata.append(novi_zapis)
+        return True
+    except Exception as e:
+        st.error(f"Greška pri spremanju argumenta: {e}")
+        return False
+
 # ==============================================================================
 # 2. KONFIGURACIJA STRANICE (Mora biti prva Streamlit naredba)
 # ==============================================================================
