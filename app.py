@@ -63,7 +63,7 @@ else:
     st.error("❌ Kritična greška: 'GEMINI_API_KEY' nije pronađen u Streamlit Secrets postavkama!")
 
 # ==============================================================================
-# 4. POMOĆNE FUNKCIJE ZA PLOTLY VIZUALIZACIJE
+# 4. POMOĆNE FUNKCIJE ZA PLOTLY VIZUALIZACIJE (ISPRAVLJENO)
 # ==============================================================================
 def nacrtaj_indikator_suglasja(trenutno_suglasje):
     """Crta polukružni indikator (Gauge) za postotak društvenog suglasja."""
@@ -102,6 +102,7 @@ def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
         margin=dict(l=20, r=20, t=20, b=20)
     )
     return fig
+
 # ==============================================================================
 # 5. FUNKCIJE ZA OBRADU TEKSTA I EKSTRAKCIJU
 # ==============================================================================
