@@ -541,6 +541,119 @@ with col1:
 # ==============================================================================
 # 8. LOGIKA OBRADE I PROSLJEĐIVANJA (AI Analiza)
 # ==============================================================================
+# ==============================================================================
+# PRIPREMA STIMULATIVNIH TEKSTOVA ZA TEME (Rječnik bez uglatih zagrada)
+# ==============================================================================
+stimulacije = dict()
+stimulacije['Etičke granice genetskog inženjeringa'] = (
+    "PROVOKACIJA: Ako možemo dizajnirati savršeno dijete bez bolesti, s većim kvocijentom "
+    "inteligencije i atletskim tijelom, imamo li moralno pravo to uskratiti novoj generaciji? "
+    "Ili time stvaramo distopijsko društvo genetskih kasta u kojem će bogati biti i biološki nadmoćni?"
+)
+stimulacije['Utjecaj umjetne inteligencije na privatnost'] = (
+    "PROVOKACIJA: Privatnost kakvu smo poznavali u 20. stoljeću je mrtva. AI sustavi danas "
+    "predviđaju vaše odluke prije nego ih sami donesete. Može li društvo uopće ostati slobodno "
+    "ako algoritmi znaju svaku našu sklonost, slabost i tajnu? Jeste li spremni zamijeniti "
+    "slobodnu volju za apsolutni komfor?"
+)
+stimulacije['Budućnost decentraliziranog upravljanja društvom'] = (
+    "PROVOKACIJA: Tradicionalne države i političari su spori, korumpirani i zastarjeli. "
+    "Može li pametni ugovor (Smart Contract) na blockchainu pravednije raspodijeliti poreze i "
+    "zakone nego parlament? Što ako algoritam postane jedini nepristrani sudac, a mi izgubimo "
+    "ljudsku fleksibilnost i oprost?"
+)
+provokacija_default = "Fokusirajte se na duboku analizu, izbjegavajte površne zaključke i uočite vlastite pristranosti."
+
+# ==============================================================================
+# DEFINICIJA SKOČNOG PROZORA (MODAL / DIALOG)
+# ==============================================================================
+@st.dialog("🏛️ Protokol razumijevanja Agore")
+def prikazi_stimulaciju_modal(tema_naziv, tekst_provokacije):
+    st.markdown(f"### Tema: *{tema_naziv}*")
+    st.warning(tekst_provokacije)
+    st.markdown("---")
+    
+    # Gumb unutar modala koji zatvara prozor i otključava sustav
+    if st.button("🤝 Potvrđujem da sam shvatio poantu", use_container_width=True):
+        st.session_state.potvrđene_teme[tema_naziv] = True
+        st.rerun()
+
+# ==============================================================================
+# Inicijalizacija stanja sesije
+# ==============================================================================
+if "ai_tekstualni_dio" not in st.session_state:
+    st.session_state.ai_tekstualni_dio = ""
+if "metrika" not in st.session_state:
+    st.session_state.metrika = None
+if "status" not in st.session_state:
+    st.session_state.status = "ZAKLJUČANO"
+
+# Pratimo koje su teme pročitane i potvrđene
+if "potvrđene_teme" not in st.session_state:
+    st.session_state.potvrđene_teme = dict()
+    
+# Pratimo koja je tema bila selektirana u prošlom koraku kako bismo znali je li se promijenila
+if "zadnja_selektirana_tema" not in st.session_state:
+    st.session_state.zadnja_selektirana_tema = ""
+
+# Raspored u dva glavna stupca
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("Vaš doprinos zajednici")
+    sub_col1, sub_col2 = st.columns(list((0.7, 0.3)))
+    with sub_col1:
+        lista_tema = dohvati_aktivne_teme()
+        izabrana_tema = st.selectbox("🎯 Odaberite temu za raspravu:", lista_tema)
+        trenutno_suglasje, ukupno_sudionika = dohvati_metriku_teme(izabrana_tema)
+    with sub_col2:
+        fig_suglasje = nacrtaj_indikator_suglasja(trenutno_suglasje)
+        st.plotly_chart(fig_suglasje, use_container_width=True, key=f"sug_chart_{izabrana_tema}")
+        
+    meta1, meta2 = st.columns(2)
+    with meta1:
+        st.markdown(f"Indeks društvenog konsenzusa: {trenutno_suglasje}%")
+    with meta2:
+        oznaka_sudionika = "sudionika" if ukupno_sudionika != 1 else "sudionik"
+        st.markdown(f"👥 Uzorak rasprave: {ukupno_sudionika} {oznaka_sudionika}")
+        
+    st.markdown("---")
+    
+    # LOGIKA DETEKCIJE PROMJENE TEME
+    # Ako je korisnik upravo prebacio na novu temu, resetiramo potvrdu za tu temu i palimo popup
+    if izabrana_tema != st.session_state.zadnja_selektirana_tema:
+        st.session_state.zadnja_selektirana_tema = izabrana_tema
+        st.session_state.potvrđene_teme[izabrana_tema] = False
+        st.rerun()
+
+    # Dohvaćanje teksta stimulacije
+    tekst_stimulacije = stimulacije.get(izabrana_tema, provokacija_default)
+    je_potvrđeno = st.session_state.potvrđene_teme.get(izabrana_tema, False)
+    
+    # Ako tema nije potvrđena, automatski otvori skočni prozor
+    if not je_potvrđeno:
+        prikazi_stimulaciju_modal(izabrana_tema, tekst_stimulacije)
+        
+        # Vizualna blokada na samoj stranici dok se popup ne odobri
+        st.info("🔒 Sustav je privremeno zaključan. Molimo pročitajte i potvrdite stimulaciju u skočnom prozoru.")
+        # Lažna onemogućena polja samo radi boljeg UX-a dok je prozor otvoren
+        st.text_area("Upišite svoj argument...", height=180, disabled=True, key="disabled_input")
+        st.button("Skeniraj moj um ✨", use_container_width=True, disabled=True, key="disabled_btn")
+    else:
+        # PRAVI UNOS (Aktivira se tek kad modal postavi stanje na True)
+        user_input = st.text_area(
+            "Upišite svoj argument ili tezu ovdje (bilo koji jezik):", 
+            height=180, 
+            placeholder="Fokusirajte se na činjenice..."
+        )
+        
+        # Mali gumb ako korisnik želi namjerno ponovno otvoriti provokaciju
+        if st.button("👁️ Prikaži stimulaciju ponovno", help="Otvara skočni prozor s provokacijom"):
+            st.session_state.potvrđene_teme[izabrana_tema] = False
+            st.rerun()
+            
+        analiziraj_gumb = st.button("Skeniraj moj um ✨", use_container_width=True)
+
 if analiziraj_gumb and user_input:
     with col2:
         with st.spinner("Čuvar Agore analizira vašu misao..."):
