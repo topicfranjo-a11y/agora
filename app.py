@@ -269,26 +269,28 @@ def dohvati_aktivne_teme():
         if conn:
             conn.close()
 
-def dodaj_novu_temu(naziv_teme):
-    conn = None
+def dodaj_novu_temu(naziv_teme, tekst_provokacije=""):
+    """Sprema novu temu i pripadajuću provokaciju u bazu podataka."""
     try:
-        conn = otvori_vezu()
+        conn = sqlite3.connect("agora_teme.db")
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO teme (naziv) VALUES (%s) ON CONFLICT DO NOTHING", (naziv_teme.strip(),))
+        
+        # Koristimo INSERT koji upisuje i temu i provokativni tekst
+        cursor.execute(
+            "INSERT INTO rasprave (tema, provokacija) VALUES (?, ?)", 
+            (naziv_teme, tekst_provokacije)
+        )
+        
         conn.commit()
-        cursor.close()
+        conn.close()
         return True
-    except Exception:
-        if conn:
-            conn.rollback()
+    except sqlite3.IntegrityError:
+        if 'conn' in locals(): conn.close()
         return False
-    finally:
-        if conn:
-            conn.close()
+    except Exception as e:
+        if 'conn' in locals(): conn.close()
+        return False
 
-def obrisi_temu(naziv_teme):
-    if not naziv_teme or str(naziv_teme).strip() in ["", "Općenito"]:
-        return False, "Nije moguće obrisati zadanu temu 'Općenito'!"
         
     conn = None
     try:
@@ -491,16 +493,24 @@ with st.sidebar:
     st.markdown("### 🛠️ Upravljanje Agorom (Admin)")
     nova_tema_input = st.text_input("Dodaj novu temu rasprave:")
     
-    # Mijenjamo gumb tako da koristi originalnu funkciju s jednim argumentom
+    # Ovdje vraćamo okvir za unos provokativnog teksta koji je nedostajao
+    nova_provokacija_input = st.text_area(
+        "Unesite stimulativni tekst / provokaciju za ovu temu:", 
+        placeholder="PROVOKACIJA: Upišite tekst koji će se pojaviti u skočnom prozoru..."
+    )
+    
     if st.button("Kreiraj temu ➕", use_container_width=True):
-        if nova_tema_input.strip():
-            # Pozivamo funkciju točno onako kako je definirana u vašem ostatku koda
-            if dodaj_novu_temu(nova_tema_input.strip()):
+        if nova_tema_input.strip() and nova_provokacija_input.strip():
+            # Sada funkcija sigurno prima oba argumenta jer smo je ažurirali u 1. koraku
+            if dodaj_novu_temu(nova_tema_input.strip(), nova_provokacija_input.strip()):
                 st.success("Nova tema uspješno stvorena!")
                 time.sleep(0.8)
                 st.rerun()
+            else:
+                st.error("Greška pri spremanju! Tema možda već postoji.")
         else:
-            st.error("Molimo unesite naziv teme!")
+            st.error("Molimo ispunite i naziv teme i tekst provokacije!")
+
 
 
     st.markdown("### 🗑️ Ukloni temu (Admin)")
