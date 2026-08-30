@@ -50,30 +50,32 @@ def ekstrahiraj_podatke_iz_odgovora(ai_odgovor):
 
 
 def spremi_analizirani_argument(korisnik, tema, tekst, ton, metrika_dict):
-    """
-    Sprema analizirani argument u Streamlit Session State (ili bazu podataka).
-    Prilagodite ovaj kod ako koristite pravu bazu podataka (SQL, Firebase i sl.).
-    """
+    """Sprema pročišćeni argument izravno u PostgreSQL bazu podataka."""
     try:
-        # Inicijalizacija baze u session state-u ako ne postoji
-        if "baza_argumenata" not in st.session_state:
-            st.session_state.baza_argumenata = []
-            
-        # Kreiranje zapisa
-        novi_zapis = {
-            "korisnik": korisnik,
-            "tema": tema,
-            "tekst": tekst,
-            "ton": ton,
-            "metrika": metrika_dict
-        }
+        conn = otvori_vezu()  # Koristi vašu funkciju iz 1. dijela
+        cursor = conn.cursor()
+        vrijeme = datetime.now().strftime("%d.%m.%Y. u %H:%M")
         
-        # Spremanje zapisa
-        st.session_state.baza_argumenata.append(novi_zapis)
+        # Izvlačimo postotak suglasja iz rječnika, zadana vrijednost je 50 ako ključ nedostaje
+        postotak_suglasja = str(metrika_dict.get("suglasje", 50))
+        
+        # ISPRAVLJENO: Točno 5 parametara (%s) za 5 stupaca
+        cursor.execute(
+            """
+            INSERT INTO argumenti (korisnik, tema, tekst, datum, ton) 
+            VALUES (%s, %s, %s, %s, %s)
+            """, 
+            (korisnik, tema, tekst, vrijeme, postotak_suglasja)
+        )
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
         return True
     except Exception as e:
-        st.error(f"Greška pri spremanju argumenta: {e}")
+        st.error(f"Kritična greška pri spremanju u PostgreSQL bazu: {e}")
         return False
+
 # ==============================================================================
 # 2. KONFIGURACIJA STRANICE (Mora biti prva Streamlit naredba)
 # ==============================================================================
