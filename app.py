@@ -401,7 +401,7 @@ inicijaliziraj_bazu()
 # 7. KORISNIČKO SUČELJE (UI) & JAVASCRIPT IDENTIFIKACIJA
 # ==============================================================================
 st.title("🏛️ AGORA")
-st.caption("sa trenutkom tvog rođenja postao si prošlost - ako imaš sreće da tvoj prezent potraje, iskoristi ga da humano oblikuje budućnost")
+st.markdown("### sa trenutkom tvog rođenja postao si prošlost - ako imaš sreće da tvoj prezent potraje, iskoristi ga da humano oblikuje budućnost")
 st.markdown("---")
 
 script_ip = 'await fetch("https://ipify.org").then(r => r.json())'
