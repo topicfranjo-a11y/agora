@@ -119,65 +119,6 @@ def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
     return fig
 
 
-def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
-    """Crta radarni grafikon za analitičke ocjene uma."""
-    kategorije = ['Analitičnost', 'Empatija', 'Sinteza']
-    vrijednosti = [analitika, empatija, sinteza]
-    
-    fig = go.Figure(data=go.Scatterpolar(
-        r=vrijednosti + [vrijednosti[0]],
-        theta=kategorije + [kategorije[0]],
-        fill='toself',
-        line_color='#1f77b4'
-    ))
-    fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
-        showlegend=False,
-        height=250,
-        margin=dict(l=20, r=20, t=20, b=20)
-    )
-    return fig
-
-
-def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
-    """Crta radarni grafikon za analitičke ocjene uma."""
-    kategorije = ['Analitičnost', 'Empatija', 'Sinteza']
-    vrijednosti = [analitika, empatija, sinteza]
-    
-    fig = go.Figure(data=go.Scatterpolar(
-        r=vrijednosti + [vrijednosti[0]],
-        theta=kategorije + [kategorije[0]],
-        fill='toself',
-        line_color='#1f77b4'
-    ))
-    fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
-        showlegend=False,
-        height=250,
-        margin=dict(l=20, r=20, t=20, b=20)
-    )
-    return fig
-
-
-def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
-    """Crta radarni grafikon za analitičke ocjene uma."""
-    kategorije = ['Analitičnost', 'Empatija', 'Sinteza']
-    vrijednosti = [analitika, empatija, sinteza]
-    
-    fig = go.Figure(data=go.Scatterpolar(
-        r=vrijednosti + [vrijednosti[0]],
-        theta=kategorije + [kategorije[0]],
-        fill='toself',
-        line_color='#1f77b4'
-    ))
-    fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
-        showlegend=False,
-        height=250,
-        margin=dict(l=20, r=20, t=20, b=20)
-    )
-    return fig
-
 # ==============================================================================
 # 5. FUNKCIJE ZA OBRADU TEKSTA I EKSTRAKCIJU
 # ==============================================================================
