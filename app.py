@@ -487,27 +487,21 @@ with st.sidebar:
                 time.sleep(0.8)
                 st.rerun()
 
-    st.markdown("---")
+       st.markdown("---")
     st.markdown("### 🛠️ Upravljanje Agorom (Admin)")
     nova_tema_input = st.text_input("Dodaj novu temu rasprave:")
-
-    # NOVO: Unos provokativnog teksta prilikom kreiranja nove teme u bazu
-    nova_provokacija_input = st.text_area(
-        "Unesite stimulativni tekst / provokaciju:",
-        placeholder="PROVOKACIJA: Ako možemo...",
-    )
-
+    
+    # Mijenjamo gumb tako da koristi originalnu funkciju s jednim argumentom
     if st.button("Kreiraj temu ➕", use_container_width=True):
-        if nova_tema_input.strip() and nova_provokacija_input.strip():
-            # Prilagodite vašu funkciju dodaj_novu_temu da prihvaća i tekst provokacije
-            if dodaj_novu_temu(
-                nova_tema_input.strip(), nova_provokacija_input.strip()
-            ):
+        if nova_tema_input.strip():
+            # Pozivamo funkciju točno onako kako je definirana u vašem ostatku koda
+            if dodaj_novu_temu(nova_tema_input.strip()):
                 st.success("Nova tema uspješno stvorena!")
                 time.sleep(0.8)
                 st.rerun()
         else:
-            st.error("Molimo ispunite i naziv teme i tekst provokacije!")
+            st.error("Molimo unesite naziv teme!")
+
 
     st.markdown("### 🗑️ Ukloni temu (Admin)")
     lista_za_brisanje = dohvati_aktivne_teme()
