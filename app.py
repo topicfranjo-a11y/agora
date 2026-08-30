@@ -162,13 +162,15 @@ def inicijaliziraj_bazu():
         conn = otvori_vezu()
         cursor = conn.cursor()
         
-        cursor.execute("""
+       # STARI KOD (koji uzrokuje grešku u Postgresu):
+         cursor.execute("""
             CREATE TABLE IF NOT EXISTS rasprave (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tema TEXT UNIQUE NOT NULL,
                 provokacija TEXT NOT NULL
-            )
-        """)
+           )
+       """)
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS korisnici (
                 ip_adresa TEXT PRIMARY KEY,
