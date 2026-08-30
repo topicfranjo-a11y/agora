@@ -573,7 +573,6 @@ def prikazi_stimulaciju_modal(tema_naziv, tekst_provokacije):
     st.warning(tekst_provokacije)
     st.markdown("---")
     
-    # Gumb unutar modala koji zatvara prozor i otključava sustav
     if st.button("🤝 Potvrđujem da sam shvatio poantu", use_container_width=True):
         st.session_state.potvrđene_teme[tema_naziv] = True
         st.rerun()
@@ -592,9 +591,9 @@ if "status" not in st.session_state:
 if "potvrđene_teme" not in st.session_state:
     st.session_state.potvrđene_teme = dict()
     
-# Pratimo koja je tema bila selektirana u prošlom koraku kako bismo znali je li se promijenila
-if "zadnja_selektirana_tema" not in st.session_state:
-    st.session_state.zadnja_selektirana_tema = ""
+# Pratimo aktivnu temu kako bismo znali je li se promijenila
+if "trenutna_tema_state" not in st.session_state:
+    st.session_state.trenutna_tema_state = ""
 
 # Raspored u dva glavna stupca
 col1, col2 = st.columns(2)
@@ -604,8 +603,21 @@ with col1:
     sub_col1, sub_col2 = st.columns(list((0.7, 0.3)))
     with sub_col1:
         lista_tema = dohvati_aktivne_teme()
-        izabrana_tema = st.selectbox("🎯 Odaberite temu za raspravu:", lista_tema)
+        
+        # POPRAVAK: Dodan jedinstveni 'key' kako bi se spriječio DuplicateElementId
+        izabrana_tema = st.selectbox(
+            "🎯 Odaberite temu za raspravu:", 
+            lista_tema, 
+            key="glavni_izbor_teme"
+        )
+        
+        # LOGIKA DETEKCIJE PROMJENE TEME (Bez agresivnog st.rerun-a koji ruši elemente)
+        if izabrana_tema != st.session_state.trenutna_tema_state:
+            st.session_state.trenutna_tema_state = izabrana_tema
+            st.session_state.potvrđene_teme[izabrana_tema] = False
+            
         trenutno_suglasje, ukupno_sudionika = dohvati_metriku_teme(izabrana_tema)
+        
     with sub_col2:
         fig_suglasje = nacrtaj_indikator_suglasja(trenutno_suglasje)
         st.plotly_chart(fig_suglasje, use_container_width=True, key=f"sug_chart_{izabrana_tema}")
@@ -618,13 +630,6 @@ with col1:
         st.markdown(f"👥 Uzorak rasprave: {ukupno_sudionika} {oznaka_sudionika}")
         
     st.markdown("---")
-    
-    # LOGIKA DETEKCIJE PROMJENE TEME
-    # Ako je korisnik upravo prebacio na novu temu, resetiramo potvrdu za tu temu i palimo popup
-    if izabrana_tema != st.session_state.zadnja_selektirana_tema:
-        st.session_state.zadnja_selektirana_tema = izabrana_tema
-        st.session_state.potvrđene_teme[izabrana_tema] = False
-        st.rerun()
 
     # Dohvaćanje teksta stimulacije
     tekst_stimulacije = stimulacije.get(izabrana_tema, provokacija_default)
@@ -634,25 +639,25 @@ with col1:
     if not je_potvrđeno:
         prikazi_stimulaciju_modal(izabrana_tema, tekst_stimulacije)
         
-        # Vizualna blokada na samoj stranici dok se popup ne odobri
-        st.info("🔒 Sustav je privremeno zaključan. Molimo pročitajte i potvrdite stimulaciju u skočnom prozoru.")
-        # Lažna onemogućena polja samo radi boljeg UX-a dok je prozor otvoren
-        st.text_area("Upišite svoj argument...", height=180, disabled=True, key="disabled_input")
-        st.button("Skeniraj moj um ✨", use_container_width=True, disabled=True, key="disabled_btn")
+        # Vizualna blokada sučelja dok se popup ne odobri
+        st.info("🔒 Sustav je privremeno zaključan. Pročitajte i potvrdite stimulaciju u skočnom prozoru.")
+        st.text_area("Upišite svoj argument...", height=180, disabled=True, key="disabled_input_z")
+        st.button("Skeniraj moj um ✨", use_container_width=True, disabled=True, key="disabled_btn_z")
     else:
         # PRAVI UNOS (Aktivira se tek kad modal postavi stanje na True)
         user_input = st.text_area(
             "Upišite svoj argument ili tezu ovdje (bilo koji jezik):", 
             height=180, 
-            placeholder="Fokusirajte se na činjenice..."
+            placeholder="Fokusirajte se na činjenice...",
+            key="aktivan_user_input"
         )
         
-        # Mali gumb ako korisnik želi namjerno ponovno otvoriti provokaciju
         if st.button("👁️ Prikaži stimulaciju ponovno", help="Otvara skočni prozor s provokacijom"):
             st.session_state.potvrđene_teme[izabrana_tema] = False
             st.rerun()
             
-        analiziraj_gumb = st.button("Skeniraj moj um ✨", use_container_width=True)
+        analiziraj_gumb = st.button("Skeniraj moj um ✨", use_container_width=True, key="aktivan_analiziraj_gumb")
+
 
 if analiziraj_gumb and user_input:
     with col2:
