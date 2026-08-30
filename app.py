@@ -487,7 +487,7 @@ with st.sidebar:
                 time.sleep(0.8)
                 st.rerun()
 
-       st.markdown("---")
+    st.markdown("---")
     st.markdown("### 🛠️ Upravljanje Agorom (Admin)")
     nova_tema_input = st.text_input("Dodaj novu temu rasprave:")
     
