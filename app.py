@@ -163,7 +163,7 @@ def inicijaliziraj_bazu():
         cursor = conn.cursor()
         
        # STARI KOD (koji uzrokuje grešku u Postgresu):
-         cursor.execute("""
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS rasprave (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tema TEXT UNIQUE NOT NULL,
