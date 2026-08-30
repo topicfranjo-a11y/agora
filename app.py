@@ -1,6 +1,7 @@
 # ==============================================================================
 # 1. UVOZ BIBLIOTEKA
 # ==============================================================================
+import random
 import os
 import time
 import json
@@ -281,6 +282,7 @@ def inicijaliziraj_bazu():
 
 
 def dohvati_ili_kreiraj_korisnika(ip_adresa):
+    conn = None
     try:
         conn = otvori_vezu()
         cursor = conn.cursor()
@@ -291,8 +293,10 @@ def dohvati_ili_kreiraj_korisnika(ip_adresa):
             pseudonim = rezultat[0]
         else:
             kratki_ip = ip_adresa.split(".")[-1] if ip_adresa and "." in ip_adresa else "X"
-            pseudonim = f"Građanin_{kratki_ip}_{int(time.time()) % 1000}"
+            # ISPRAVLJENO: Korištenje random broja smanjuje šansu za koliziju u istoj sekundi
+            pseudonim = f"Građanin_{kratki_ip}_{random.randint(100, 999)}"
             vrijeme = datetime.now().strftime("%d.%m.%Y.")
+            
             cursor.execute(
                 "INSERT INTO korisnici (ip_adresa, pseudonim, datum_registracije) VALUES (%s, %s, %s)",
                 (ip_adresa, pseudonim, vrijeme)
@@ -301,22 +305,34 @@ def dohvati_ili_kreiraj_korisnika(ip_adresa):
             st.toast(f"🔑 Kreiran privremeni profil: {pseudonim}")
             
         cursor.close()
-        conn.close()
         return str(pseudonim)
-    except Exception:
+    except Exception as e:
+        if conn:
+            conn.rollback()
         return "Gost_Agore"
+    finally:
+        # ISPRAVLJENO: Veza se sigurno zatvara u svakom scenariju
+        if conn:
+            conn.close()
 
 def azuriraj_pseudonim(ip_adresa, novi_pseudonim):
+    conn = None
     try:
         conn = otvori_vezu()
         cursor = conn.cursor()
         cursor.execute("UPDATE korisnici SET pseudonim = %s WHERE ip_adresa = %s", (novi_pseudonim, ip_adresa))
         conn.commit()
         cursor.close()
-        conn.close()
         return True
     except Exception:
+        if conn:
+            conn.rollback()
         return False
+    finally:
+        # ISPRAVLJENO: Veza se sigurno zatvara u svakom scenariju
+        if conn:
+            conn.close()
+
 
 def dohvati_aktivne_teme():
     """Dohvaća isključivo tekstualne nazive tema iz baze."""
