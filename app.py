@@ -15,31 +15,38 @@ from google.genai import errors
 def ekstrahiraj_podatke_iz_odgovora(ai_odgovor):
     """Ekstrahira ton i metričke podatke iz strukturiranog AI odgovora."""
     trenutni_ton = "Neutralan"
-    metrički_podaci = {"Logika": 5, "Retorika": 5, "Objektivnost": 5}
+    # Usklađeno s promptom: analitika, empatija, sinteza, suglasje
+    metrički_podaci = {"analitika": 5, "empatija": 5, "sinteza": 5, "suglasje": 50}
     
     if not ai_odgovor:
         return trenutni_ton, metrički_podaci
+        
     try:
+        # 1. Ekstrakcija JSON-a za metriku
         json_match = re.search(r'\{.*\}', ai_odgovor, re.DOTALL)
         if json_match:
             podaci = json.loads(json_match.group(0))
-            trenutni_ton = podaci.get("ton", podaci.get("Ton", trenutni_ton))
-            metrički_podaci = podaci.get("metrika", podaci.get("metrike", metrički_podaci))
-            return trenutni_ton, metrički_podaci
-        
-        lines = ai_odgovor.split("\n")
-        for line in lines:
-            if "ton:" in line.lower():
-                trenutni_ton = line.split(":")[-1].strip().strip('"').strip("'")
-            for kljuc in metrički_podaci.keys():
-                if kljuc.lower() in line.lower():
-                    brojevi = re.findall(r'\d+', line)
-                    if brojevi:
-                        metrički_podaci[kljuc] = int(brojevi[0])
-    except Exception:
+            # Ako je AI vratio ugniježđeni rječnik ili izravno ključeve
+            if "analitika" in podaci:
+                metrički_podaci = podaci
+            elif "metrika" in podaci:
+                metrički_podaci = podaci["metrika"]
+
+        # 2. Ekstrakcija tona iz tekstualnog dijela (ispod ### [1. ANALIZA TONA])
+        if "### [1. ANALIZA TONA]" in ai_odgovor:
+            dijelovi = ai_odgovor.split("### [1. ANALIZA TONA]")
+            if len(dijelovi) > 1:
+                # Uzmi tekst do sljedećeg naslova
+                tekst_tona = dijelovi[1].split("###")[0].strip()
+                if tekst_tona:
+                    trenutni_ton = tekst_tona
+
+    except Exception as e:
+        # Opcionalno za debug: st.warning(f"Greška pri ekstrakciji: {e}")
         pass
         
     return trenutni_ton, metrički_podaci
+
 
 
 def spremi_analizirani_argument(korisnik, tema, tekst, ton, metrika_dict):
