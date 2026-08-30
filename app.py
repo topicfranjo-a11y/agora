@@ -65,24 +65,60 @@ else:
 # ==============================================================================
 # 4. POMOĆNE FUNKCIJE ZA PLOTLY VIZUALIZACIJE (SADA S VIDLJIVIM VRIJEDNOSTIMA)
 # ==============================================================================
+# ==============================================================================
+# 4. POMOĆNE FUNKCIJE ZA PLOTLY VIZUALIZACIJE (SIGURNA VERZIJA BEZ ZAGRADA)
+# ==============================================================================
 def nacrtaj_indikator_suglasja(trenutno_suglasje):
     """Crta polukružni indikator (Gauge) za postotak društvenog suglasja."""
+    os_x = list((0, 1))
+    os_y = list((0, 1))
+    raspon_osi = list((0, 100))
+    
+    korak_1 = list((0, 40))
+    korak_2 = list((40, 75))
+    korak_3 = list((75, 100))
+    
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=trenutno_suglasje,
-        domain={'x':, 'y': [0, 1]},
+        domain={'x': os_x, 'y': os_y},
         gauge={
-            'axis': {'range': [0, 100]},
+            'axis': {'range': raspon_osi},
             'bar': {'color': "#1f77b4"},
             'steps': [
-                {'range':, 'color': "#ff9999"},
-                {'range':, 'color': "#ffffcc"},
-                {'range':, 'color': "#d9f2d9"}
+                {'range': korak_1, 'color': "#ff9999"},
+                {'range': korak_2, 'color': "#ffffcc"},
+                {'range': korak_3, 'color': "#d9f2d9"}
             ]
         }
     ))
     fig.update_layout(height=150, margin=dict(l=10, r=10, t=10, b=10))
     return fig
+
+def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
+    """Crta radarni grafikon za analitičke ocjene uma."""
+    kategorije = list(('Analitičnost', 'Empatija', 'Sinteza'))
+    vrijednosti = list((analitika, empatija, sinteza))
+    
+    dodatna_kat = list(('Analitičnost',))
+    dodatna_vrijednost = list((vrijednosti,))
+    
+    raspon_radijalne_osi = list((0, 10))
+    
+    fig = go.Figure(data=go.Scatterpolar(
+        r=vrijednosti + dodatna_vrijednost,
+        theta=kategorije + dodatna_kat,
+        fill='toself',
+        line_color='#1f77b4'
+    ))
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=raspon_radijalne_osi)),
+        showlegend=False,
+        height=250,
+        margin=dict(l=20, r=20, t=20, b=20)
+    )
+    return fig
+
 
 def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
     """Crta radarni grafikon za analitičke ocjene uma."""
