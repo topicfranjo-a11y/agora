@@ -560,15 +560,21 @@ if st.button("Uputi na analizu"):
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
 
 
-# POPRAVAK: Provjeravamo postoji li varijabla prije nego je upotrijebimo
-if "status" in locals() and status == "OTKLJUČANO":
-    st.balloons()
-    st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
-elif "status" in locals():
-    st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
 
-# Prikaz povijesti i analitike (izvan gumba, vidljivo uvijek)
-                
+# ==============================================================================
+# Prikaz statusa pročišćavanja (Oslanja se na session_state umjesto locals())
+# ==============================================================================
+if "status" in st.session_state:
+    if st.session_state.status == "OTKLJUČANO":
+        st.balloons()
+        st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
+        # Resetiramo status nakon prikaza kako se baloni ne bi ponavljali pri svakom kliku na stranici
+        st.session_state.status = "PRIKAZANO_OTKLJUČANO" 
+    elif st.session_state.status == "ZAKLJUČANO":
+        st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
+        st.session_state.status = "PRIKAZANO_ZAKLJUČANO"
+
+# Prikaz povijesti i analitike (Sada radi ispravno i sinkronizirano)
 if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     st.markdown("---")
     st.subheader("📊 Kolektivna analitika i povijest misli")
@@ -582,55 +588,54 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     with st.container(border=True):
         st.markdown("### 🔍 Zadnja analiza Čuvara Agore")
         
-        # Prikaz teksta koji je analiziran u obliku citata
         tekst_misli = zadnji_zapis.get('tekst', 'Nema teksta')
         st.markdown(f"**Unesena misao:**\n> *{tekst_misli}*")
-        
-        # Prikaz Tona s vizualnom značkom (badge)
         st.markdown(f"**Emocionalni ton:** `{ton_za_prikaz}`")
         
-        # Dinamički prikaz metrika u stupcima pomoću st.metric kartica
         if metrike_za_prikaz:
             st.markdown("**Analitičke ocjene:**")
-            # Stvaramo onoliko stupaca koliko ima metričkih pokazatelja (Logika, Retorika...)
             stupci = st.columns(len(metrike_za_prikaz))
             
             for i, (kljuc, vrijednost) in enumerate(metrike_za_prikaz.items()):
                 with stupci[i]:
-                    # Prikazuje lijepu karticu s nazivom metrike i ocjenom (npr. 8/10)
-                    st.metric(label=kljuc, value=f"{vrijednost} / 10")
+                    # ISPRAVLJENO: Prilagodba prikaza za postotak suglasja vs ocjene do 10
+                    if str(kljuc).lower() == "suglasje":
+                        st.metric(label=kljuc.capitalize(), value=f"{vrijednost}%")
+                    else:
+                        st.metric(label=kljuc.capitalize(), value=f"{vrijednost} / 10")
         else:
             st.info("Metrički podaci nisu dostupni za ovaj zapis.")
 
-       # 2. Arhiva/Povijest svih prethodnih misli (Sada uključuje sve zapise)
+    # 2. Arhiva/Povijest svih prethodnih misli
     with st.expander("📚 Pregledaj cjelokupnu arhivu misli", expanded=False):
-        # Uzimamo sve zapise i okrećemo redoslijed da najnoviji bude na vrhu
         sve_misli = list(reversed(st.session_state.baza_argumenata))
         ukupno_zapisa = len(sve_misli)
         
         for indeks, zapis in enumerate(sve_misli):
-            # Računamo stvarni redni broj misli iz baze
             redni_broj = ukupno_zapisa - indeks
             
-            # Koristimo st.chat_message ili manji uokvireni kontejner za svaku stariju misao
             with st.container(border=True):
                 st.markdown(f"### 🧠 Misao #{redni_broj}")
                 st.caption(f"👥 **Autor:** {zapis.get('korisnik', 'Anonimno')} | 📌 **Tema:** {zapis.get('tema', 'Općenito')}")
-                
                 st.markdown(f"**Argument:**\n> *{zapis.get('tekst', '')}*")
                 
-                # Prikaz tona i kratkih rezultata
                 t_ton = zapis.get('ton', zapis.get('Ton', 'Neutralan'))
                 m_metrike = zapis.get('metrika', zapis.get('metrike', {}))
-                metrike_linija = "  •  ".join([f"**{k}**: {v}/10" for k, v in m_metrike.items()])
+                
+                # ISPRAVLJENO: Formatiranje linije metrika uzimajući u obzir postotak suglasja
+                privremene_metrike = []
+                for k, v in m_metrike.items():
+                    if str(k).lower() == "suglasje":
+                        privremene_metrike.append(f"**{k}**: {v}%")
+                    else:
+                        privremene_metrike.append(f"**{k}**: {v}/10")
+                        
+                metrike_linija = "  •  ".join(privremene_metrike)
                 
                 st.markdown(f"🎭 **Ton:** `{t_ton}`")
                 if metrike_linija:
                     st.markdown(f"📈 **Analitika:** {metrike_linija}")
 
-
-
-        
 # ==============================================================================
 # 8. ADMINISTRATORSKI PANEL (Upravljanje temama - Nadograđeno)
 # ==============================================================================
