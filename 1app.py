@@ -300,7 +300,7 @@ return fig
 ==============================================================================
 7. VIZUALNO SUČELJE I AUTENTIFIKACIJA PREMA IP ADRESI
 ==============================================================================
-st.title("🏛️ Globalna Agora — Protokol Uma")
+st.title("🏛️ Globalna Agora — As soon as you were born, you became the past, if you are lucky enough for your present to last, use it to humanely shape the future.")
 st.caption("Web MVP | Centralizirana Cloud Baza | Globalno prevođenje u pozadini")
 st.markdown("---")
 JavaScript dohvaćanje stvarne IP adrese klijenta
