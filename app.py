@@ -604,14 +604,13 @@ with col1:
     with sub_col1:
         lista_tema = dohvati_aktivne_teme()
         
-        # POPRAVAK: Dodan jedinstveni 'key' kako bi se spriječio DuplicateElementId
         izabrana_tema = st.selectbox(
             "🎯 Odaberite temu za raspravu:", 
             lista_tema, 
             key="glavni_izbor_teme"
         )
         
-        # LOGIKA DETEKCIJE PROMJENE TEME (Bez agresivnog st.rerun-a koji ruši elemente)
+        # LOGIKA DETEKCIJE PROMJENE TEME
         if izabrana_tema != st.session_state.trenutna_tema_state:
             st.session_state.trenutna_tema_state = izabrana_tema
             st.session_state.potvrđene_teme[izabrana_tema] = False
@@ -620,7 +619,8 @@ with col1:
         
     with sub_col2:
         fig_suglasje = nacrtaj_indikator_suglasja(trenutno_suglasje)
-        st.plotly_chart(fig_suglasje, use_container_width=True, key=f"sug_chart_{izabrana_tema}")
+        # POPRAVAK: Uklonjen eksplicitni 'key' parametar koji je uzrokovao DuplicateElementKey grešku
+        st.plotly_chart(fig_suglasje, use_container_width=True)
         
     meta1, meta2 = st.columns(2)
     with meta1:
@@ -639,12 +639,11 @@ with col1:
     if not je_potvrđeno:
         prikazi_stimulaciju_modal(izabrana_tema, tekst_stimulacije)
         
-        # Vizualna blokada sučelja dok se popup ne odobri
         st.info("🔒 Sustav je privremeno zaključan. Pročitajte i potvrdite stimulaciju u skočnom prozoru.")
         st.text_area("Upišite svoj argument...", height=180, disabled=True, key="disabled_input_z")
         st.button("Skeniraj moj um ✨", use_container_width=True, disabled=True, key="disabled_btn_z")
     else:
-        # PRAVI UNOS (Aktivira se tek kad modal postavi stanje na True)
+        # PRAVI UNOS
         user_input = st.text_area(
             "Upišite svoj argument ili tezu ovdje (bilo koji jezik):", 
             height=180, 
@@ -657,6 +656,7 @@ with col1:
             st.rerun()
             
         analiziraj_gumb = st.button("Skeniraj moj um ✨", use_container_width=True, key="aktivan_analiziraj_gumb")
+
 
 
 if analiziraj_gumb and user_input:
