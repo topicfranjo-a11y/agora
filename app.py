@@ -557,11 +557,13 @@ if analiziraj_gumb and user_input:
             
             if ai_klijent:
                 try:
+                    # Unutar bloka: if analiziraj_gumb and user_input:
                     response = ai_klijent.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=user_input,
-                        config={"system_instruction": DINAMICKI_SYSTEM_PROMPT}
-                    )
+                    model="gemini-3.6-flash",  # Pripazite da ovdje piše verzija 3.6-flash
+                    contents=user_input,
+                    config={"system_instruction": DINAMICKI_SYSTEM_PROMPT}
+            )
+
                     pun_izlaz = response.text
                     st.toast("Analiza uspješno izvršena putem Gemini modela.", icon="🚀")
                 except Exception as e:
