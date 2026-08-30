@@ -134,38 +134,40 @@ else:
 
 def obrisi_temu(naziv_teme):
     """Briše selektiranu temu i njezine argumente iz baze podataka."""
-    # Ako nemate definiranu funkciju ocisti_prazne_teme(), 
-    # ostavite je zakomentiranu s '#' kako ne biste dobili NameError
-    # ocisti_prazne_teme()
-    
     if not naziv_teme or str(naziv_teme).strip() in ["", "Općenito"]:
-        return False, "Nije moguće obrisati zadanu temu 'Općenito' ili praznu temu na ovaj način!"
+        return False, "Nije moguće obrisati zadanu temu 'Općenito' ili praznu temu!"
         
+    conn = None
     try:
         conn = otvori_vezu()
         cursor = conn.cursor()
-        
-        # Slanje čistog stringa bez skrivenih razmaka
         cisti_naziv = str(naziv_teme).strip()
         
-        # 1. Brisanje argumenata
+        # 1. Prvo brišemo argumente vezane uz tu temu
         cursor.execute("DELETE FROM argumenti WHERE tema = %s", (cisti_naziv,))
-        # 2. Brisanje teme
+        
+        # 2. Zatim brišemo samu temu
         cursor.execute("DELETE FROM teme WHERE naziv = %s", (cisti_naziv,))
         
-        conn.commit()
-        
-        # Provjera je li išta stvarno obrisano
+        # ISPRAVLJENO: rowcount čitamo ODMAH nakon execute, prije commit-a
         broj_obrisanih = cursor.rowcount
+        
+        conn.commit()
         cursor.close()
-        conn.close()
         
         if broj_obrisanih == 0:
-            return False, f"Tema '{cisti_naziv}' nije pronađena u bazi pod tim točnim nazivom."
+            return False, f"Tema '{cisti_naziv}' nije pronađena u bazi."
             
-        return True, f"Uspješno obrisana tema '{cisti_naziv}'."
+        return True, f"Uspješno obrisana tema '{cisti_naziv}' i svi njezini argumenti."
+        
     except Exception as e:
+        if conn:
+            conn.rollback() # Poništava promjene ako je došlo do djelomične greške
         return False, f"Greška pri brisanju: {str(e)}"
+    finally:
+        if conn:
+            conn.close() # Veza se sigurno zatvara u svakom scenariju
+
 
 
 
