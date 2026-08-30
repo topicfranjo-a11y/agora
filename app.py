@@ -397,10 +397,7 @@ def spremi_analizirani_argument(korisnik, tema, tekst, ton, metrika_dict):
 
 # Pokretanje inicijalizacije baze podataka
 inicijaliziraj_bazu()
-import sqlite3
-import time
-import streamlit as st
-from streamlit_javascript import st_javascript
+
 
 # ==============================================================================
 # POMOĆNE FUNKCIJE ZA RAD S BAZOM PODATAKA (Dodajte ili prilagodite u svom kodu)
