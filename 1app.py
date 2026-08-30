@@ -16,7 +16,7 @@ from streamlit_javascript import st_javascript
 # ==============================================================================
 # 2. KONFIGURACIJA STRANICE (Mora biti prva Streamlit naredba)
 # ==============================================================================
-st.set_page_config(page_title="Agora Web — As soon as you were born, you became the past, if you are lucky enough for your present to last, use it to humanely shape the future.", page_icon="🏛️", layout="wide")
+st.set_page_config(page_title="AGORA", page_icon="🏛️", layout="wide")
 
 # ==============================================================================
 # 3. GLOBALNI AI PROMPT (Višejezičnost + Analiza + Prijevod)
@@ -300,7 +300,7 @@ return fig
 ==============================================================================
 7. VIZUALNO SUČELJE I AUTENTIFIKACIJA PREMA IP ADRESI
 ==============================================================================
-st.title("🏛️ Globalna Agora — As soon as you were born, you became the past, if you are lucky enough for your present to last, use it to humanely shape the future.")
+st.title("🏛️ AGORA")
 st.caption("Web MVP | Centralizirana Cloud Baza | Globalno prevođenje u pozadini")
 st.markdown("---")
 JavaScript dohvaćanje stvarne IP adrese klijenta
