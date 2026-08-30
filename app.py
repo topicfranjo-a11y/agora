@@ -163,7 +163,7 @@ def inicijaliziraj_bazu():
         cursor = conn.cursor()
         
        
-       cursor.execute("""
+        cursor.execute("""
            CREATE TABLE IF NOT EXISTS rasprave (
                id SERIAL PRIMARY KEY,
                tema TEXT UNIQUE NOT NULL,
