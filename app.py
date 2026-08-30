@@ -163,6 +163,13 @@ def inicijaliziraj_bazu():
         cursor = conn.cursor()
         
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS rasprave (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tema TEXT UNIQUE NOT NULL,
+                provokacija TEXT NOT NULL
+            )
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS korisnici (
                 ip_adresa TEXT PRIMARY KEY,
                 pseudonim TEXT NOT NULL,
