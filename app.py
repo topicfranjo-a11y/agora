@@ -269,6 +269,7 @@ def inicijaliziraj_bazu():
         print(f"Kritična greška u bazi podataka: {str(e)}")
 
 
+
 def dohvati_ili_kreiraj_korisnika(ip_adresa):
     try:
         conn = otvori_vezu()
@@ -294,6 +295,18 @@ def dohvati_ili_kreiraj_korisnika(ip_adresa):
         return str(pseudonim)
     except Exception:
         return "Gost_Agore"
+
+def azuriraj_pseudonim(ip_adresa, novi_pseudonim):
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE korisnici SET pseudonim = %s WHERE ip_adresa = %s", (novi_pseudonim, ip_adresa))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception:
+        return False
 
 def azuriraj_pseudonim(ip_adresa, novi_pseudonim):
     try:
