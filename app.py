@@ -75,7 +75,7 @@ def nacrtaj_indikator_suglasja(trenutno_suglasje):
             'axis': {'range': [0, 100]},
             'bar': {'color': "#1f77b4"},
             'steps': [
-                {'range':, 'color': "#ff9999"},
+                {'range':, 'color': "#ff9999"}
                 {'range':, 'color': "#ffffcc"},
                 {'range':, 'color': "#d9f2d9"}
             ]
