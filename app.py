@@ -67,21 +67,33 @@ else:
 # ==============================================================================
 def nacrtaj_indikator_suglasja(trenutno_suglasje):
     """Crta polukružni indikator (Gauge) za postotak društvenog suglasja."""
+    
+    # Sigurnosna provjera vrijednosti
+    if trenutno_suglasje is None:
+        trenutno_suglasje = 0.0
+
+    postavke_brzinomjera = dict(
+        axis=dict(range=[0, 100]),
+        bar=dict(color="#1f77b4"),
+        steps=[
+            dict(range=[0, 40], color="#ff9999"),
+            dict(range=[40, 70], color="#ffffcc"),
+            dict(range=[70, 100], color="#d9f2d9")
+        ]
+    )
+
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=trenutno_suglasje,
-        domain={'x': [0.0, 1.0], 'y': [0.0, 1.0]},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': "#1f77b4"},
-            'steps': [
-                {'range':, 'color': "#ff9999"}
-                {'range':, 'color': "#ffffcc"},
-                {'range':, 'color': "#d9f2d9"}
-            ]
-        }
+        value=float(trenutno_suglasje),
+        domain=dict(x=[0.0, 1.0], y=[0.0, 1.0]),
+        gauge=postavke_brzinomjera
     ))
-    fig.update_layout(height=150, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
+    
+    fig.update_layout(
+        height=150, 
+        margin=dict(l=10, r=10, t=10, b=10), 
+        paper_bgcolor="rgba(0,0,0,0)"
+    )
     return fig
 
 def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
