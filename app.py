@@ -622,40 +622,40 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
 # ==============================================================================
 st.sidebar.markdown("---")
 with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
+    # Savjet: Lozinku je bolje povlačiti iz st.secrets["admin_password"]
     admin_lozinka = st.text_input("Unesite administratorsku lozinku:", type="password")
     
     if admin_lozinka == "agora2026":
         st.success("Pristup odobren!")
         
-               # --- SEKCIJA 1: DODAVANJE NOVE TEME ---
+        # --- SEKCIJA 1: DODAVANJE NOVE TEME ---
         st.write("### ➕ Dodaj novu temu")
         nova_tema_input = st.text_input("Naziv nove teme:", placeholder="Npr. Sloboda govora vs. Govor mržnje")
         
         if st.button("Spremi temu", use_container_width=True):
-            # Sve linije ispod moraju biti uvučene za točno 4 razmaka više od 'if' izjave
-            uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
-            if uspjeh:
-                st.toast(poruka, icon="✅")
-                time.sleep(1)
-                st.rerun()
+            if nova_tema_input.strip() == "":
+                st.error("Naziv teme ne može biti prazan!")
             else:
-                st.error(poruka)
-
-
+                uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
+                if uspjeh:
+                    st.toast(poruka, icon="✅")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(poruka)
                 
         st.write("---")
         
         # --- SEKCIJA 2: BRISANJE POSTOJEĆE TEME ---
+        # ISPRAVLJENO UVLAČENJE: Ova sekcija je sada neovisna o uspjehu dodavanja
         st.write("### 🗑️ Obriši temu")
         sve_teme_za_brisanje = dohvati_aktivne_teme()
         
-        # Filtriramo privremenu/glavnu temu ako ne želimo da se slučajno obriše
+        # Filtriranje glavne teme
         opcije_brisanja = [t for t in sve_teme_za_brisanje if t != "Općenito"]
         
         if opcije_brisanja:
             tema_za_uklanjanje = st.selectbox("Odaberite temu za trajno brisanje:", opcije_brisanja, key="delete_select")
-            
-            # Sigurnosna kvačica kako se ne bi obrisalo slučajnim klikom
             potvrda_brisanja = st.checkbox("Potvrđujem da želim trajno obrisati ovu temu i sve njezine poruke.")
             
             if st.button("🚨 TRAJNO OBRIŠI", use_container_width=True, type="primary"):
@@ -672,5 +672,6 @@ with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
         else:
             st.info("Nema tema dostupnih za brisanje.")
             
-    elif admin_lozinka != "":
-        st.error("Pogrešna lozinka. Pristup odbijen.")
+    # Sprečava pojavu greške dok korisnik tek počinje tipkati (okida se tek nakon pritiska Enter)
+    elif admin_lozinka and len(admin_lozinka) >= len("agora2026"):
+        st.error("Pogrešna lozinka. Pristup odbijen.")")
