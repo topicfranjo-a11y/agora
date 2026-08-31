@@ -674,4 +674,4 @@ with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
             
     # Sprečava pojavu greške dok korisnik tek počinje tipkati (okida se tek nakon pritiska Enter)
     elif admin_lozinka and len(admin_lozinka) >= len("agora2026"):
-        st.error("Pogrešna lozinka. Pristup odbijen.")")
+        st.error("Pogrešna lozinka. Pristup odbijen.")
