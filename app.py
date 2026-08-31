@@ -67,20 +67,25 @@ else:
 # ==============================================================================
 def nacrtaj_indikator_suglasja(trenutno_suglasje):
     """Crta polukružni indikator (Gauge) za postotak društvenog suglasja."""
+    
+    # Konfiguracija raspona i boja odvojeno u liste radi čišće sintakse
+    rasponi_boja = [
+        dict(range=(0, 33), color="#ff9999"),
+        dict(range=(33, 66), color="#ffffcc"),
+        dict(range=(66, 100), color="#d9f2d9")
+    ]
+    
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=trenutno_suglasje,
-        domain={'x':, 'y': [0, 1]},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': "#1f77b4"},
-            'steps': [
-                {'range':, 'color': "#ff9999"},
-                {'range':, 'color': "#ffffcc"},
-                {'range':, 'color': "#d9f2d9"}
-            ]
-        }
+        value=float(trenutno_suglasje),
+        domain=dict(x=(0, 1), y=(0, 1)),  # Korištenje tuple-a (0, 1) umjesto lista
+        gauge=dict(
+            axis=dict(range=(0, 100)),
+            bar=dict(color="#1f77b4"),
+            steps=rasponi_boja
+        )
     ))
+    
     fig.update_layout(height=150, margin=dict(l=10, r=10, t=10, b=10))
     return fig
 
