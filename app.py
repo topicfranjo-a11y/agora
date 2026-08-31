@@ -70,22 +70,18 @@ def nacrtaj_indikator_suglasja(trenutno_suglasje):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=trenutno_suglasje,
-        domain={'x':, 'y': [0, 1]},  # Popravljeno: upisane vrijednosti [0, 1]
+        domain={'x': [0.0, 1.0], 'y': [0.0, 1.0]},
         gauge={
             'axis': {'range': [0, 100]},
             'bar': {'color': "#1f77b4"},
             'steps': [
-                {'range':, 'color': "#ff9999"},    # Crveno (0-40%)
-                {'range':, 'color': "#ffffcc"},  # Žuto (40-70%)
-                {'range':, 'color': "#d9f2d9"}  # Zeleno (70-100%)
+                {'range':, 'color': "#ff9999"},
+                {'range':, 'color': "#ffffcc"},
+                {'range':, 'color': "#d9f2d9"}
             ]
         }
     ))
-    fig.update_layout(
-        height=150, 
-        margin=dict(l=10, r=10, t=10, b=10),
-        paper_bgcolor="rgba(0,0,0,0)"  # Čini pozadinu prozirnom radi ljepšeg dizajna
-    )
+    fig.update_layout(height=150, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
     return fig
 
 def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
