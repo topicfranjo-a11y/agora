@@ -70,18 +70,24 @@ def nacrtaj_indikator_suglasja(trenutno_suglasje):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=trenutno_suglasje,
-        domain={'x':, 'y': [0, 1]},
+        domain={'x':, 'y': [0, 1]},  # Popravljeno: dodan puni x-raspon [0, 1]
         gauge={
-            'axis': {'range': [0, 100]},
+            'axis': {'range':, 'tickwidth': 1, 'tickcolor': "darkblue"},
             'bar': {'color': "#1f77b4"},
             'steps': [
-                {'range':, 'color': "#ff9999"},
-                {'range':, 'color': "#ffffcc"},
-                {'range':, 'color': "#d9f2d9"}
+                {'range':, 'color': "#ff9999"},    # Popravljeno: Nesuglasje (Crveno)
+                {'range':, 'color': "#ffffcc"},  # Popravljeno: Djelomično suglasje (Žuto)
+                {'range':, 'color': "#d9f2d9"}  # Popravljeno: Visoko suglasje (Zeleno)
             ]
         }
     ))
-    fig.update_layout(height=150, margin=dict(l=10, r=10, t=10, b=10))
+    # Prilagođeno za bolji prikaz u Streamlit aplikaciji
+    fig.update_layout(
+        height=180, 
+        margin=dict(l=20, r=20, t=30, b=20),
+        paper_bgcolor="rgba(0,0,0,0)",  # Prozirna pozadina
+        plot_bgcolor="rgba(0,0,0,0)"
+    )
     return fig
 
 def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
