@@ -493,7 +493,7 @@ if analiziraj_gumb and user_input:
             if ai_klijent:
                 try:
                     response = ai_klijent.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-3.6-flash",
                         contents=user_input,
                         config={"system_instruction": DINAMICKI_SYSTEM_PROMPT}
                     )
