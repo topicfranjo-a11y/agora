@@ -2,7 +2,6 @@ import os
 import time
 import json
 import re
-import sqlite3
 import random
 from datetime import datetime
 import streamlit as st
@@ -63,32 +62,22 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     st.error("❌ Kritična greška: 'GEMINI_API_KEY' nije pronađen u Streamlit Secrets postavkama!")
 
-
-
 # ==============================================================================
-# 4. POMOĆNE FUNKCIJE ZA PLOTLY VIZUALIZACIJE (SIGURNA VERZIJA BEZ ZAGRADA)
+# 4. POMOĆNE FUNKCIJE ZA PLOTLY VIZUALIZACIJE
 # ==============================================================================
 def nacrtaj_indikator_suglasja(trenutno_suglasje):
     """Crta polukružni indikator (Gauge) za postotak društvenog suglasja."""
-    os_x = list((0, 1))
-    os_y = list((0, 1))
-    raspon_osi = list((0, 100))
-    
-    korak_1 = list((0, 40))
-    korak_2 = list((40, 75))
-    korak_3 = list((75, 100))
-    
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=trenutno_suglasje,
-        domain={'x': os_x, 'y': os_y},
+        domain={'x':, 'y': [0, 1]},
         gauge={
-            'axis': {'range': raspon_osi},
+            'axis': {'range': [0, 100]},
             'bar': {'color': "#1f77b4"},
             'steps': [
-                {'range': korak_1, 'color': "#ff9999"},
-                {'range': korak_2, 'color': "#ffffcc"},
-                {'range': korak_3, 'color': "#d9f2d9"}
+                {'range':, 'color': "#ff9999"},
+                {'range':, 'color': "#ffffcc"},
+                {'range':, 'color': "#d9f2d9"}
             ]
         }
     ))
@@ -97,29 +86,22 @@ def nacrtaj_indikator_suglasja(trenutno_suglasje):
 
 def nacrtaj_fraktal_uma(analitika, empatija, sinteza):
     """Crta radarni grafikon za analitičke ocjene uma."""
-    kategorije = list(('Analitičnost', 'Empatija', 'Sinteza'))
-    vrijednosti = list((analitika, empatija, sinteza))
-    
-    dodatna_kat = list(('Analitičnost',))
-    dodatna_vrijednost = list((vrijednosti,))
-    
-    raspon_radijalne_osi = list((0, 10))
+    kategorije = ['Analitičnost', 'Empatija', 'Sinteza']
+    vrijednosti = [analitika, empatija, sinteza]
     
     fig = go.Figure(data=go.Scatterpolar(
-        r=vrijednosti + dodatna_vrijednost,
-        theta=kategorije + dodatna_kat,
+        r=vrijednosti + [vrijednosti[0]],
+        theta=kategorije + [kategorije[0]],
         fill='toself',
         line_color='#1f77b4'
     ))
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=raspon_radijalne_osi)),
+        polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
         showlegend=False,
         height=250,
         margin=dict(l=20, r=20, t=20, b=20)
     )
     return fig
-
-
 # ==============================================================================
 # 5. FUNKCIJE ZA OBRADU TEKSTA I EKSTRAKCIJU
 # ==============================================================================
@@ -162,15 +144,6 @@ def inicijaliziraj_bazu():
         conn = otvori_vezu()
         cursor = conn.cursor()
         
-       
-        cursor.execute("""
-           CREATE TABLE IF NOT EXISTS rasprave (
-               id SERIAL PRIMARY KEY,
-               tema TEXT UNIQUE NOT NULL,
-               provokacija TEXT NOT NULL
-           )
-       """)
-
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS korisnici (
                 ip_adresa TEXT PRIMARY KEY,
@@ -278,28 +251,26 @@ def dohvati_aktivne_teme():
         if conn:
             conn.close()
 
-def dodaj_novu_temu(naziv_teme, tekst_provokacije=""):
-    """Sprema novu temu i pripadajuću provokaciju u bazu podataka."""
+def dodaj_novu_temu(naziv_teme):
+    conn = None
     try:
-        conn = sqlite3.connect("agora_teme.db")
+        conn = otvori_vezu()
         cursor = conn.cursor()
-        
-        # Koristimo INSERT koji upisuje i temu i provokativni tekst
-        cursor.execute(
-            "INSERT INTO rasprave (tema, provokacija) VALUES (?, ?)", 
-            (naziv_teme, tekst_provokacije)
-        )
-        
+        cursor.execute("INSERT INTO teme (naziv) VALUES (%s) ON CONFLICT DO NOTHING", (naziv_teme.strip(),))
         conn.commit()
-        conn.close()
+        cursor.close()
         return True
-    except sqlite3.IntegrityError:
-        if 'conn' in locals(): conn.close()
+    except Exception:
+        if conn:
+            conn.rollback()
         return False
-    except Exception as e:
-        if 'conn' in locals(): conn.close()
-        return False
+    finally:
+        if conn:
+            conn.close()
 
+def obrisi_temu(naziv_teme):
+    if not naziv_teme or str(naziv_teme).strip() in ["", "Općenito"]:
+        return False, "Nije moguće obrisati zadanu temu 'Općenito'!"
         
     conn = None
     try:
@@ -409,58 +380,13 @@ def spremi_analizirani_argument(korisnik, tema, tekst, ton, metrika_dict):
 
 # Pokretanje inicijalizacije baze podataka
 inicijaliziraj_bazu()
-
-
-# ==============================================================================
-# POMOĆNE FUNKCIJE ZA RAD S BAZOM PODATAKA (Dodajte ili prilagodite u svom kodu)
-# ==============================================================================
-DB_NAME = "agora_teme.db"
-
-
-def dohvati_stimulaciju_iz_baze(tema_naziv):
-    """Dohvaća tekst provokacije za pojedinu temu iz baze podataka."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    # Pretpostavka je da vaša tablica ima stupac 'provokacija' uz 'tema'
-    try:
-        cursor.execute(
-            "SELECT provokacija FROM rasprave WHERE tema = ?", (tema_naziv,)
-        )
-        rezultat = cursor.fetchone()
-        provokacija = rezultat[0] if rezultat else None
-    except sqlite3.OperationalError:
-        # Ako stupac ne postoji u vašoj staroj strukturi, vraća None
-        provokacija = None
-    conn.close()
-    return provokacija
-
-
-# ==============================================================================
-# DEFINICIJA SKOČNOG PROZORA (MODAL / DIALOG)
-# ==============================================================================
-
-
-@st.dialog("🏛️ Protokol razumijevanja Agore")
-def prikazi_stimulaciju_modal(tema_naziv, tekst_provokacije):
-    st.markdown(f"### Tema: *{tema_naziv}*")
-    st.warning(tekst_provokacije)
-    st.markdown("---")
-
-    if st.button("🤝 Potvrđujem da sam shvatio poantu", use_container_width=True):
-        st.session_state.potvrđene_teme[tema_naziv] = True
-        st.rerun()
-
-
 # ==============================================================================
 # 7. KORISNIČKO SUČELJE (UI) & JAVASCRIPT IDENTIFIKACIJA
 # ==============================================================================
 st.title("🏛️ AGORA")
-st.markdown(
-    "### sa trenutkom tvog rođenja postao si prošlost - ako imaš sreće da tvoj prezent potraje, iskoristi ga da humano oblikuje budućnost"
-)
+st.caption("Web MVP | Centralizirana Cloud Baza | Globalno prevođenje u pozadini")
 st.markdown("---")
 
-# ISPRAVLJENO: URL mora ciljati API s format=json parametrom kako se JS ne bi srušio
 script_ip = 'await fetch("https://ipify.org").then(r => r.json())'
 vratni_ip_objekt = st_javascript(script_ip)
 user_ip = "127.0.0.1"
@@ -470,63 +396,32 @@ if isinstance(vratni_ip_objekt, dict) and "ip" in vratni_ip_objekt:
 
 trenutni_pseudonim = dohvati_ili_creiraj_korisnika(user_ip)
 
-# Inicijalizacija session state varijabli ako ne postoje
-if "ai_tekstualni_dio" not in st.session_state:
-    st.session_state.ai_tekstualni_dio = ""
-if "metrika" not in st.session_state:
-    st.session_state.metrika = None
-if "status" not in st.session_state:
-    st.session_state.status = "ZAKLJUČANO"
-if "potvrđene_teme" not in st.session_state:
-    st.session_state.potvrđene_teme = dict()
-if "trenutna_tema_state" not in st.session_state:
-    st.session_state.trenutna_tema_state = ""
-
-# SIDEBAR SUČELJE
 with st.sidebar:
     st.markdown("### 👤 Vaš Agora Profil")
     st.info(f"📍 IP Autentifikacija: {user_ip}")
     st.success(f"🎭 Pseudonim: {trenutni_pseudonim}")
-    novi_izbor = st.text_input(
-        "Promijeni svoj pseudonim:", value=trenutni_pseudonim, max_chars=20
-    )
-
+    novi_izbor = st.text_input("Promijeni svoj pseudonim:", value=trenutni_pseudonim, max_chars=20)
+    
     if st.button("Spremi novi pseudonim", use_container_width=True):
         if novi_izbor.strip() and novi_izbor != trenutni_pseudonim:
             if azuriraj_pseudonim(user_ip, novi_izbor.strip()):
                 st.success("Uspješno ažurirano! Osvježavam...")
                 time.sleep(0.8)
                 st.rerun()
-
+                
     st.markdown("---")
     st.markdown("### 🛠️ Upravljanje Agorom (Admin)")
     nova_tema_input = st.text_input("Dodaj novu temu rasprave:")
-    
-    # Ovdje vraćamo okvir za unos provokativnog teksta koji je nedostajao
-    nova_provokacija_input = st.text_area(
-        "Unesite stimulativni tekst / provokaciju za ovu temu:", 
-        placeholder="PROVOKACIJA: Upišite tekst koji će se pojaviti u skočnom prozoru..."
-    )
-    
     if st.button("Kreiraj temu ➕", use_container_width=True):
-        if nova_tema_input.strip() and nova_provokacija_input.strip():
-            # Sada funkcija sigurno prima oba argumenta jer smo je ažurirali u 1. koraku
-            if dodaj_novu_temu(nova_tema_input.strip(), nova_provokacija_input.strip()):
+        if nova_tema_input.strip():
+            if dodaj_novu_temu(nova_tema_input):
                 st.success("Nova tema uspješno stvorena!")
                 time.sleep(0.8)
                 st.rerun()
-            else:
-                st.error("Greška pri spremanju! Tema možda već postoji.")
-        else:
-            st.error("Molimo ispunite i naziv teme i tekst provokacije!")
-
-
-
+                
     st.markdown("### 🗑️ Ukloni temu (Admin)")
     lista_za_brisanje = dohvati_aktivne_teme()
-    tema_za_uklanjanje = st.selectbox(
-        "Odaberi temu za brisanje:", lista_za_brisanje, key="del_tema"
-    )
+    tema_za_uklanjanje = st.selectbox("Odaberi temu za brisanje:", lista_za_brisanje, key="del_tema")
     if st.button("Obriši temu ❌", use_container_width=True):
         uspjeh, poruka = obrisi_temu(tema_za_uklanjanje)
         if uspjeh:
@@ -536,120 +431,6 @@ with st.sidebar:
         else:
             st.error(poruka)
 
-# GLAVNI RASPODJEL U STUPCE
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("Vaš doprinos zajednici")
-    sub_col1, sub_col2 = st.columns([0.7, 0.3])
-
-    with sub_col1:
-        lista_tema = dohvati_aktivne_teme()
-        izabrana_tema = st.selectbox("🎯 Odaberite temu za raspravu:", lista_tema)
-        trenutno_suglasje, ukupno_sudionika = dohvati_metriku_teme(
-            izabrana_tema
-        )
-
-    with sub_col2:
-        fig_suglasje = nacrtaj_indikator_suglasja(trenutno_suglasje)
-        st.plotly_chart(
-            fig_suglasje,
-            use_container_width=True,
-            key=f"sug_chart_{izabrana_tema}",
-        )
-
-    meta1, meta2 = st.columns(2)
-    with meta1:
-        st.markdown(f"Indeks društvenog konsenzusa: {trenutno_suglasje}%")
-    with meta2:
-        oznaka_sudionika = "sudionika" if ukupno_sudionika != 1 else "sudionik"
-        st.markdown(f"👥 Uzorak rasprave: {ukupno_sudionika} {oznaka_sudionika}")
-
-    st.markdown("---")
-
-    # ==============================================================================
-    # INTEGRACIJA LOGIKE SKOČNOG PROZORA NA PROMJENU TEME
-    # ==============================================================================
-    provokacija_default = "Fokusirajte se na duboku analizu, izbjegavajte površne zaključke i uočite vlastite pristranosti."
-
-    if izabrana_tema:
-        # Dinamičko povlačenje pripadajućeg stimulativnog teksta iz baze podataka
-        tekst_provokacije = dohvati_stimulaciju_iz_baze(izabrana_tema)
-        if not tekst_provokacije:
-            tekst_provokacije = provokacija_default
-
-        # Detekcija je li korisnik prebacio na novu temu
-        if izabrana_tema != st.session_state.trenutna_tema_state:
-            st.session_state.trenutna_tema_state = izabrana_tema
-
-            # Pokretanje modala ako tema još nije pročitana u ovoj sesiji
-            if izabrana_tema not in st.session_state.potvrđene_teme:
-                prikazi_stimulaciju_modal(izabrana_tema, tekst_provokacije)
-
-    # Vizualni indikator zaključavanja forme ispod izbora teme
-    if izabrana_tema in st.session_state.potvrđene_teme:
-        st.success(f"🔓 Protokol za temu '{izabrana_tema}' je otključan!")
-        onemoguci_unos = False
-    else:
-        st.info("🔒 Molimo pročitajte i potvrdite protokol u skočnom prozoru.")
-        onemoguci_unos = True
-
-    # Povezivanje statusa potvrde s elementima za unos teksta (zaključavanje)
-    user_input = st.text_area(
-        "Upišite svoj argument ili tezu ovdje (bilo koji jezik):",
-        height=180,
-        placeholder="Fokusirajte se na činjenice...",
-        disabled=onemoguci_unos,
-    )
-    analiziraj_gumb = st.button(
-        "Skeniraj moj um ✨",
-        use_container_width=True,
-        disabled=onemoguci_unos,
-    )
-
-
-# ==============================================================================
-# 8. LOGIKA OBRADE I PROSLJEĐIVANJA (AI Analiza)
-# ==============================================================================
-# ==============================================================================
-# PRIPREMA STIMULATIVNIH TEKSTOVA ZA TEME (Rječnik bez uglatih zagrada)
-# ==============================================================================
-stimulacije = dict()
-stimulacije['Etičke granice genetskog inženjeringa'] = (
-    "PROVOKACIJA: Ako možemo dizajnirati savršeno dijete bez bolesti, s većim kvocijentom "
-    "inteligencije i atletskim tijelom, imamo li moralno pravo to uskratiti novoj generaciji? "
-    "Ili time stvaramo distopijsko društvo genetskih kasta u kojem će bogati biti i biološki nadmoćni?"
-)
-stimulacije['Utjecaj umjetne inteligencije na privatnost'] = (
-    "PROVOKACIJA: Privatnost kakvu smo poznavali u 20. stoljeću je mrtva. AI sustavi danas "
-    "predviđaju vaše odluke prije nego ih sami donesete. Može li društvo uopće ostati slobodno "
-    "ako algoritmi znaju svaku našu sklonost, slabost i tajnu? Jeste li spremni zamijeniti "
-    "slobodnu volju za apsolutni komfor?"
-)
-stimulacije['Budućnost decentraliziranog upravljanja društvom'] = (
-    "PROVOKACIJA: Tradicionalne države i političari su spori, korumpirani i zastarjeli. "
-    "Može li pametni ugovor (Smart Contract) na blockchainu pravednije raspodijeliti poreze i "
-    "zakone nego parlament? Što ako algoritam postane jedini nepristrani sudac, a mi izgubimo "
-    "ljudsku fleksibilnost i oprost?"
-)
-provokacija_default = "Fokusirajte se na duboku analizu, izbjegavajte površne zaključke i uočite vlastite pristranosti."
-
-# ==============================================================================
-# DEFINICIJA SKOČNOG PROZORA (MODAL / DIALOG)
-# ==============================================================================
-@st.dialog("🏛️ Protokol razumijevanja Agore")
-def prikazi_stimulaciju_modal(tema_naziv, tekst_provokacije):
-    st.markdown(f"### Tema: *{tema_naziv}*")
-    st.warning(tekst_provokacije)
-    st.markdown("---")
-    
-    if st.button("🤝 Potvrđujem da sam shvatio poantu", use_container_width=True):
-        st.session_state.potvrđene_teme[tema_naziv] = True
-        st.rerun()
-
-# ==============================================================================
-# Inicijalizacija stanja sesije
-# ==============================================================================
 if "ai_tekstualni_dio" not in st.session_state:
     st.session_state.ai_tekstualni_dio = ""
 if "metrika" not in st.session_state:
@@ -657,40 +438,18 @@ if "metrika" not in st.session_state:
 if "status" not in st.session_state:
     st.session_state.status = "ZAKLJUČANO"
 
-# Pratimo koje su teme pročitane i potvrđene
-if "potvrđene_teme" not in st.session_state:
-    st.session_state.potvrđene_teme = dict()
-    
-# Pratimo aktivnu temu kako bismo znali je li se promijenila
-if "trenutna_tema_state" not in st.session_state:
-    st.session_state.trenutna_tema_state = ""
-
-# Raspored u dva glavna stupca
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Vaš doprinos zajednici")
-    sub_col1, sub_col2 = st.columns(list((0.7, 0.3)))
+    sub_col1, sub_col2 = st.columns([0.7, 0.3])
     with sub_col1:
         lista_tema = dohvati_aktivne_teme()
-        
-        izabrana_tema = st.selectbox(
-            "🎯 Odaberite temu za raspravu:", 
-            lista_tema, 
-            key="glavni_izbor_teme"
-        )
-        
-        # LOGIKA DETEKCIJE PROMJENE TEME
-        if izabrana_tema != st.session_state.trenutna_tema_state:
-            st.session_state.trenutna_tema_state = izabrana_tema
-            st.session_state.potvrđene_teme[izabrana_tema] = False
-            
+        izabrana_tema = st.selectbox("🎯 Odaberite temu za raspravu:", lista_tema)
         trenutno_suglasje, ukupno_sudionika = dohvati_metriku_teme(izabrana_tema)
-        
     with sub_col2:
         fig_suglasje = nacrtaj_indikator_suglasja(trenutno_suglasje)
-        # POPRAVAK: Uklonjen eksplicitni 'key' parametar koji je uzrokovao DuplicateElementKey grešku
-        st.plotly_chart(fig_suglasje, use_container_width=True)
+        st.plotly_chart(fig_suglasje, use_container_width=True, key=f"sug_chart_{izabrana_tema}")
         
     meta1, meta2 = st.columns(2)
     with meta1:
@@ -700,35 +459,12 @@ with col1:
         st.markdown(f"👥 Uzorak rasprave: {ukupno_sudionika} {oznaka_sudionika}")
         
     st.markdown("---")
+    user_input = st.text_area("Upišite svoj argument ili tezu ovdje (bilo koji jezik):", height=180, placeholder="Fokusirajte se na činjenice...")
+    analiziraj_gumb = st.button("Skeniraj moj um ✨", use_container_width=True)
 
-    # Dohvaćanje teksta stimulacije
-    tekst_stimulacije = stimulacije.get(izabrana_tema, provokacija_default)
-    je_potvrđeno = st.session_state.potvrđene_teme.get(izabrana_tema, False)
-    
-    # Ako tema nije potvrđena, automatski otvori skočni prozor
-    if not je_potvrđeno:
-        prikazi_stimulaciju_modal(izabrana_tema, tekst_stimulacije)
-        
-        st.info("🔒 Sustav je privremeno zaključan. Pročitajte i potvrdite stimulaciju u skočnom prozoru.")
-        st.text_area("Upišite svoj argument...", height=180, disabled=True, key="disabled_input_z")
-        st.button("Skeniraj moj um ✨", use_container_width=True, disabled=True, key="disabled_btn_z")
-    else:
-        # PRAVI UNOS
-        user_input = st.text_area(
-            "Upišite svoj argument ili tezu ovdje (bilo koji jezik):", 
-            height=180, 
-            placeholder="Fokusirajte se na činjenice...",
-            key="aktivan_user_input"
-        )
-        
-        if st.button("👁️ Prikaži stimulaciju ponovno", help="Otvara skočni prozor s provokacijom"):
-            st.session_state.potvrđene_teme[izabrana_tema] = False
-            st.rerun()
-            
-        analiziraj_gumb = st.button("Skeniraj moj um ✨", use_container_width=True, key="aktivan_analiziraj_gumb")
-
-
-
+# ==============================================================================
+# 8. LOGIKA OBRADE I PROSLJEĐIVANJA (AI Analiza)
+# ==============================================================================
 if analiziraj_gumb and user_input:
     with col2:
         with st.spinner("Čuvar Agore analizira vašu misao..."):
@@ -744,13 +480,11 @@ if analiziraj_gumb and user_input:
             
             if ai_klijent:
                 try:
-                    # Unutar bloka: if analiziraj_gumb and user_input:
                     response = ai_klijent.models.generate_content(
-                    model="gemini-3.6-flash",  # Pripazite da ovdje piše verzija 3.6-flash
-                    contents=user_input,
-                    config={"system_instruction": DINAMICKI_SYSTEM_PROMPT}
-            )
-
+                        model="gemini-2.5-flash",
+                        contents=user_input,
+                        config={"system_instruction": DINAMICKI_SYSTEM_PROMPT}
+                    )
                     pun_izlaz = response.text
                     st.toast("Analiza uspješno izvršena putem Gemini modela.", icon="🚀")
                 except Exception as e:
