@@ -102,6 +102,8 @@ PRIJEVOIDI = {
         "locked": "🔒 BLOKADA: Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.",
         "history": "📊 Kolektivna analitika i povijest misli", "last": "### 🔍 Zadnja analiza Čuvara Agore",
         "global_agreement": "🌍 Globalno suglasje", "agreement_description": "Prosjek svih analiziranih misli kroz aktivne teme", "no_agreement_data": "Za globalni pokazatelj suglasja još nema analiziranih misli.", "records": "zapisa",
+        "discussion_library": "📚 Knjižnica rasprava", "my_discussions": "Moje rasprave", "all_discussions": "Sve rasprave", "library_description": "Rasprave su grupirane po temi.",
+        "library_empty": "U odabranom prikazu još nema rasprava.", "library_join": "Knjižnica rasprava postaje dostupna nakon što sudjelujete u barem jednoj raspravi.",
         "submitted": "Unesena misao:", "tone": "Emocionalni ton:", "scores": "Analitičke ocjene:",
         "no_metrics": "Metrički podaci nisu dostupni za ovaj zapis.", "archive": "📚 Pregledaj cjelokupnu arhivu misli",
         "thought_number": "### 🧠 Misao #{number}", "author": "Autor", "topic_label": "Tema", "argument": "Argument:", "anonymous": "Anonimno",
@@ -123,6 +125,8 @@ PRIJEVOIDI = {
         "locked": "🔒 BLOCKED: Your thought contains cognitive barriers or bias. It has been archived for further reflection.",
         "history": "📊 Collective analytics and thought history", "last": "### 🔍 Latest Guardian analysis", "submitted": "Submitted thought:",
         "global_agreement": "🌍 Global agreement", "agreement_description": "Average of all analysed thoughts across active topics", "no_agreement_data": "There are no analysed thoughts yet for the global agreement indicator.", "records": "records",
+        "discussion_library": "📚 Discussion library", "my_discussions": "My discussions", "all_discussions": "All discussions", "library_description": "Discussions are grouped by topic.",
+        "library_empty": "There are no discussions in the selected view yet.", "library_join": "The discussion library becomes available after you participate in at least one discussion.",
         "tone": "Emotional tone:", "scores": "Analytical scores:", "no_metrics": "Metric data is unavailable for this record.",
         "archive": "📚 Browse the complete thought archive", "thought_number": "### 🧠 Thought #{number}", "author": "Author", "topic_label": "Topic", "argument": "Argument:", "anonymous": "Anonymous",
         "admin": "🔐 Administrator settings", "password": "Enter the administrator password:", "access": "Access granted!", "add_topic": "### ➕ Add a new topic",
@@ -134,6 +138,13 @@ PRIJEVOIDI = {
 }
 jezik = st.sidebar.selectbox("Jezik / Language", ["hr", "en"], format_func=lambda kod: "Hrvatski" if kod == "hr" else "English", key="jezik_agore")
 t = PRIJEVOIDI[jezik]
+if "prikaz_rasprava" not in st.session_state:
+    st.session_state.prikaz_rasprava = "moje"
+izbor_rasprava = st.sidebar.columns(2)
+if izbor_rasprava[0].button(t["my_discussions"], use_container_width=True, type="primary" if st.session_state.prikaz_rasprava == "moje" else "secondary"):
+    st.session_state.prikaz_rasprava = "moje"
+if izbor_rasprava[1].button(t["all_discussions"], use_container_width=True, type="primary" if st.session_state.prikaz_rasprava == "sve" else "secondary"):
+    st.session_state.prikaz_rasprava = "sve"
 NAZIVI_METRIKA = {
     "hr": {"analitika": "Analitičnost", "empatija": "Empatija", "sinteza": "Sinteza", "suglasje": "Suglasje"},
     "en": {"analitika": "Analysis", "empatija": "Empathy", "sinteza": "Synthesis", "suglasje": "Agreement"},
@@ -480,6 +491,40 @@ def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
     except Exception:
         return []
 
+
+def korisnik_je_sudjelovao(korisnik):
+    """Provjerava ima li korisnik barem jedan trajno spremljen argument."""
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM argumenti WHERE korisnik = %s)", (korisnik,))
+        sudjelovao = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+        return sudjelovao
+    except Exception:
+        return False
+
+
+def dohvati_biblioteku_rasprava(samo_moje, trenutni_korisnik):
+    """Dohvaća trajno spremljene rasprave, grupiranje se obavlja u sučelju."""
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        if samo_moje:
+            cursor.execute(
+                "SELECT tema, korisnik, tekst, datum, ton, metrika FROM argumenti WHERE korisnik = %s ORDER BY tema, id DESC",
+                (trenutni_korisnik,),
+            )
+        else:
+            cursor.execute("SELECT tema, korisnik, tekst, datum, ton, metrika FROM argumenti ORDER BY tema, id DESC")
+        zapisi = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return zapisi
+    except Exception:
+        return []
+
 # ==============================================================================
 # 6. GLOBALNE AI FUNKCIJE
 # ==============================================================================
@@ -690,6 +735,43 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
 
 
 st.markdown("---")
+st.subheader(t["discussion_library"])
+st.caption(t["library_description"])
+
+if not korisnik_je_sudjelovao(trenutni_korisnik):
+    st.info(t["library_join"])
+else:
+    samo_moje = st.session_state.prikaz_rasprava == "moje"
+    zapisi_biblioteke = dohvati_biblioteku_rasprava(samo_moje, trenutni_korisnik)
+    rasprave_po_temama = {}
+    for tema, korisnik, tekst, datum, ton, metrika in zapisi_biblioteke:
+        rasprave_po_temama.setdefault(tema, []).append((korisnik, tekst, datum, ton, metrika))
+
+    if not rasprave_po_temama:
+        st.info(t["library_empty"])
+    else:
+        for tema, zapisi_teme in rasprave_po_temama.items():
+            naslov_teme = f"{prikazi_temu(tema)} ({len(zapisi_teme)})"
+            with st.expander(naslov_teme, expanded=False):
+                for korisnik, tekst, datum, ton, metrika in zapisi_teme:
+                    with st.container(border=True):
+                        st.caption(f"👥 **{t['author']}:** {korisnik} · {datum}")
+                        st.markdown(f"**{t['argument']}**\n> *{tekst}*")
+                        if ton:
+                            st.markdown(f"🎭 **{t['tone']}** `{ton}`")
+                        if metrika:
+                            try:
+                                podaci_metrike = metrika if isinstance(metrika, dict) else json.loads(metrika)
+                                metrike_linija = "  •  ".join(
+                                    f"**{NAZIVI_METRIKA[jezik].get(kljuc, kljuc)}**: {vrijednost}/10"
+                                    for kljuc, vrijednost in podaci_metrike.items()
+                                )
+                                st.markdown(f"📈 **{t['scores']}** {metrike_linija}")
+                            except (TypeError, ValueError, json.JSONDecodeError):
+                                pass
+
+
+st.markdown("---")
 st.subheader(t["global_agreement"])
 globalno_suglasje, broj_analiza = dohvati_globalno_suglasje(aktivne_teme)
 
@@ -780,3 +862,4 @@ with st.sidebar.expander(t["admin"], expanded=False):
         st.error(t["wrong_password"])
     elif not admin_zaporka:
         st.info(t["admin_secret"])
+
