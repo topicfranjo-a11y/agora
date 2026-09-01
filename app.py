@@ -138,6 +138,18 @@ NAZIVI_METRIKA = {
     "hr": {"analitika": "Analitičnost", "empatija": "Empatija", "sinteza": "Sinteza", "suglasje": "Suglasje"},
     "en": {"analitika": "Analysis", "empatija": "Empathy", "sinteza": "Synthesis", "suglasje": "Agreement"},
 }
+PRIJEVOIDI_TEMA = {
+    "Općenito": "General",
+    "Etičke granice genetskog inženjeringa": "Ethical boundaries of genetic engineering",
+    "Utjecaj umjetne inteligencije na privatnost": "The impact of artificial intelligence on privacy",
+    "Budućnost decentraliziranog upravljanja društvom": "The future of decentralized governance in society",
+    "Religija kao zabluda ili izvor nade": "Religion: delusion or source of hope",
+}
+
+
+def prikazi_temu(naziv_teme):
+    """Prevodi ugrađene teme samo u sučelju; baza koristi izvorni naziv."""
+    return PRIJEVOIDI_TEMA.get(naziv_teme, naziv_teme) if jezik == "en" else naziv_teme
 
 # ==============================================================================
 # 3. GLOBALNI AI PROMPT
@@ -565,11 +577,13 @@ st.markdown(t["intro"])
 
 # Izbornik za odabir teme rasprave
 aktivne_teme = dohvati_aktivne_teme()
-odabrana_tema = st.selectbox(
+teme_za_prikaz = {prikazi_temu(tema): tema for tema in aktivne_teme}
+odabrana_tema_prikaz = st.selectbox(
     t["topic"],
-    aktivne_teme,
+    list(teme_za_prikaz),
     key="selectbox_izbor_teme_agora"
 )
+odabrana_tema = teme_za_prikaz[odabrana_tema_prikaz]
 
 
 # 1. Polje za unos mora definirati varijablu pod nazivom 'korisnikov_tekst'
@@ -660,7 +674,8 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
             # Koristimo st.chat_message ili manji uokvireni kontejner za svaku stariju misao
             with st.container(border=True):
                 st.markdown(t["thought_number"].format(number=redni_broj))
-                st.caption(f"👥 **{t['author']}:** {zapis.get('korisnik', t['anonymous'])} | 📌 **{t['topic_label']}:** {zapis.get('tema', 'Općenito')}")
+                naziv_teme = prikazi_temu(zapis.get('tema', 'Općenito'))
+                st.caption(f"👥 **{t['author']}:** {zapis.get('korisnik', t['anonymous'])} | 📌 **{t['topic_label']}:** {naziv_teme}")
                 
                 st.markdown(f"**{t['argument']}**\n> *{zapis.get('tekst', '')}*")
                 
@@ -740,7 +755,9 @@ with st.sidebar.expander(t["admin"], expanded=False):
         opcije_brisanja = [t for t in sve_teme_za_brisanje if t != "Općenito"]
         
         if opcije_brisanja:
-            tema_za_uklanjanje = st.selectbox(t["choose_delete"], opcije_brisanja, key="delete_select")
+            opcije_brisanja_za_prikaz = {prikazi_temu(tema): tema for tema in opcije_brisanja}
+            tema_za_uklanjanje_prikaz = st.selectbox(t["choose_delete"], list(opcije_brisanja_za_prikaz), key="delete_select")
+            tema_za_uklanjanje = opcije_brisanja_za_prikaz[tema_za_uklanjanje_prikaz]
             
             # Sigurnosna kvačica kako se ne bi obrisalo slučajnim klikom
             potvrda_brisanja = st.checkbox(t["confirm_delete"])
