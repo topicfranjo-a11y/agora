@@ -451,6 +451,10 @@ trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
 
 # Prikaz glavnog sučelja
 st.title("🏛️ Agora Web — Protokol Uma")
+st.markdown(
+    "> **Čim si se rodio postao si prošlost, ako imaš sreće da tvoj prezent potraje "
+    "iskoristi ga da humano oblkuje budućnost.**"
+)
 st.subheader(f"Dobrodošli natrag, {trenutni_korisnik}")
 
 st.markdown("""
