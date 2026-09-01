@@ -101,6 +101,7 @@ PRIJEVOIDI = {
         "confirmed": "#### 🔓 Zapis potvrđen", "confirmed_text": "Pročišćavanje je uspješno. Misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave.",
         "locked": "🔒 BLOKADA: Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.",
         "history": "📊 Kolektivna analitika i povijest misli", "last": "### 🔍 Zadnja analiza Čuvara Agore",
+        "global_agreement": "🌍 Globalno suglasje", "agreement_description": "Prosjek svih analiziranih misli kroz aktivne teme", "no_agreement_data": "Za globalni pokazatelj suglasja još nema analiziranih misli.", "records": "zapisa",
         "submitted": "Unesena misao:", "tone": "Emocionalni ton:", "scores": "Analitičke ocjene:",
         "no_metrics": "Metrički podaci nisu dostupni za ovaj zapis.", "archive": "📚 Pregledaj cjelokupnu arhivu misli",
         "thought_number": "### 🧠 Misao #{number}", "author": "Autor", "topic_label": "Tema", "argument": "Argument:", "anonymous": "Anonimno",
@@ -121,6 +122,7 @@ PRIJEVOIDI = {
         "confirmed": "#### 🔓 Record confirmed", "confirmed_text": "The refinement was successful. Your thought meets Agora's standards and has been permanently recorded in the discussion protocols.",
         "locked": "🔒 BLOCKED: Your thought contains cognitive barriers or bias. It has been archived for further reflection.",
         "history": "📊 Collective analytics and thought history", "last": "### 🔍 Latest Guardian analysis", "submitted": "Submitted thought:",
+        "global_agreement": "🌍 Global agreement", "agreement_description": "Average of all analysed thoughts across active topics", "no_agreement_data": "There are no analysed thoughts yet for the global agreement indicator.", "records": "records",
         "tone": "Emotional tone:", "scores": "Analytical scores:", "no_metrics": "Metric data is unavailable for this record.",
         "archive": "📚 Browse the complete thought archive", "thought_number": "### 🧠 Thought #{number}", "author": "Author", "topic_label": "Topic", "argument": "Argument:", "anonymous": "Anonymous",
         "admin": "🔐 Administrator settings", "password": "Enter the administrator password:", "access": "Access granted!", "add_topic": "### ➕ Add a new topic",
@@ -426,6 +428,30 @@ def dohvati_metriku_teme(tema_naziv):
     except Exception:
         return 0, 0
 
+
+def dohvati_globalno_suglasje(teme):
+    """Vraća prosječno suglasje i broj zapisa za sve aktivne teme."""
+    if not teme:
+        return None, 0
+    try:
+        conn = otvori_vezu()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT AVG((metrika->>'suglasje')::numeric), COUNT(*)
+            FROM argumenti
+            WHERE tema = ANY(%s)
+              AND metrika ? 'suglasje'
+            """,
+            (teme,),
+        )
+        prosjek, broj_zapisa = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return (round(float(prosjek), 1) if prosjek is not None else None), broj_zapisa
+    except Exception:
+        return None, 0
+
 def dohvati_argumente(samo_moje=False, trenutni_korisnik=None):
     try:
         conn = otvori_vezu()
@@ -648,9 +674,36 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
                     st.markdown(f"📈 **{t['scores']}** {metrike_linija}")
 
 
+st.markdown("---")
+st.subheader(t["global_agreement"])
+globalno_suglasje, broj_analiza = dohvati_globalno_suglasje(aktivne_teme)
+
+if globalno_suglasje is None:
+    st.info(t["no_agreement_data"])
+else:
+    pozicija_pokazivaca = max(0, min(100, globalno_suglasje * 10))
+    st.caption(f"{t['agreement_description']} · {broj_analiza} {t['records']} · {globalno_suglasje:.1f} / 10")
+    st.markdown(
+        f"""
+        <div style="position: relative; height: 26px; margin: 0.4rem 0 0.2rem; border-radius: 999px;
+                    background: linear-gradient(90deg, #b42318 0%, #f2c94c 50%, #228b4e 100%);">
+            <div style="position: absolute; left: calc({pozicija_pokazivaca}% - 2px); top: -6px; width: 4px;
+                        height: 38px; border-radius: 2px; background: #ffffff;
+                        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #808495; font-size: 0.8rem;">
+            <span>0 · {"Nisko" if jezik == "hr" else "Low"}</span>
+            <span>5 · {"Srednje" if jezik == "hr" else "Moderate"}</span>
+            <span>10 · {"Visoko" if jezik == "hr" else "High"}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 
         
-# ==============================================================================
+# ============================================================================== 
 # 8. ADMINISTRATORSKI PANEL (Upravljanje temama - Nadograđeno)
 # ==============================================================================
 st.sidebar.markdown("---")
