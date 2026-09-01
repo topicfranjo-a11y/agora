@@ -452,8 +452,10 @@ trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
 # Prikaz glavnog sučelja
 st.title("🏛️ Agora Web — Protokol Uma")
 st.markdown(
-    "> **Čim si se rodio postao si prošlost, ako imaš sreće da tvoj prezent potraje "
-    "iskoristi ga da humano oblkuje budućnost.**"
+    "<p style='color: #FFD700; font-size: 1.1rem; font-weight: 700;'>"
+    "Čim si se rodio postao si prošlost, ako imaš sreće da tvoj prezent potraje "
+    "iskoristi ga da humano oblkuje budućnost.</p>",
+    unsafe_allow_html=True,
 )
 st.subheader(f"Dobrodošli natrag, {trenutni_korisnik}")
 
@@ -461,14 +463,6 @@ st.markdown("""
 Ovaj sustav nadzire Čuvar Agore. Svaki uneseni tekst bit će analiziran na analitičnost,
 empatiju i sintezu prije nego što bude trajno zapisan u protokole.
 """)
-
-# Izbornik za odabir teme rasprave
-aktivne_teme = dohvati_aktivne_teme()
-odabrana_tema = st.selectbox(
-    "Odaberite temu za raspravu:",
-    aktivne_teme,
-    key="selectbox_izbor_teme_agora"
-)
 
 
 # 1. Polje za unos mora definirati varijablu pod nazivom 'korisnikov_tekst'
