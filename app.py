@@ -20,7 +20,7 @@ def ekstrahiraj_podatke_iz_odgovora(ai_odgovor):
     if not ai_odgovor:
         return trenutni_ton, metrički_podaci
     try:
-        ton_mec = re.search(r"### \[1\. ANALIZA TONA\]\s*\n+(.+)", ai_odgovor)
+        ton_mec = re.search(r"### \[1\. (?:ANALIZA TONA|TONE ANALYSIS)\]\s*\n+(.+)", ai_odgovor)
         if ton_mec:
             trenutni_ton = ton_mec.group(1).strip()
         json_match = re.search(r'\{.*\}', ai_odgovor, re.DOTALL)
@@ -88,6 +88,55 @@ def spremi_analizirani_argument(korisnik, tema, tekst, ton, metrika_dict):
 # ==============================================================================
 st.set_page_config(page_title="Agora Web — Protokol Uma", page_icon="🏛️", layout="wide")
 
+PRIJEVOIDI = {
+    "hr": {
+        "title": "🏛️ Agora Web — Protokol Uma",
+        "quote": "Čim si se rodio postao si prošlost, ako imaš sreće da tvoj prezent potraje iskoristi ga da humano oblkuje budućnost.",
+        "welcome": "Dobrodošli natrag, {user}",
+        "intro": "Ovaj sustav nadzire Čuvar Agore. Svaki uneseni tekst bit će analiziran na analitičnost, empatiju i sintezu prije nego što bude trajno zapisan u protokole.",
+        "topic": "Odaberite temu za raspravu:", "thought": "Unesite svoju misao za Čuvara Agore:",
+        "placeholder": "Napišite svoj argument ovdje...", "submit": "Uputi na analizu",
+        "empty": "Najprije unesite tekst za analizu.", "processing": "Čuvar Agore pročišćava vašu misao...",
+        "saved": "Vaša misao je uspješno obrađena i trajno zapisana u protokole.",
+        "confirmed": "#### 🔓 Zapis potvrđen", "confirmed_text": "Pročišćavanje je uspješno. Misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave.",
+        "locked": "🔒 BLOKADA: Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.",
+        "history": "📊 Kolektivna analitika i povijest misli", "last": "### 🔍 Zadnja analiza Čuvara Agore",
+        "submitted": "Unesena misao:", "tone": "Emocionalni ton:", "scores": "Analitičke ocjene:",
+        "no_metrics": "Metrički podaci nisu dostupni za ovaj zapis.", "archive": "📚 Pregledaj cjelokupnu arhivu misli",
+        "thought_number": "### 🧠 Misao #{number}", "author": "Autor", "topic_label": "Tema", "argument": "Argument:", "anonymous": "Anonimno",
+        "admin": "🔐 Administratorske postavke", "password": "Unesite administratorsku lozinku:", "access": "Pristup odobren!",
+        "add_topic": "### ➕ Dodaj novu temu", "topic_name": "Naziv nove teme:", "topic_example": "Npr. Sloboda govora vs. Govor mržnje",
+        "save_topic": "Spremi temu", "delete_topic": "### 🗑️ Obriši temu", "choose_delete": "Odaberite temu za trajno brisanje:",
+        "confirm_delete": "Potvrđujem da želim trajno obrisati ovu temu i sve njezine poruke.", "delete": "🚨 TRAJNO OBRIŠI",
+        "must_confirm": "Morate označiti kućicu za potvrdu prije brisanja!", "no_topics": "Nema tema dostupnih za brisanje.",
+        "wrong_password": "Pogrešna lozinka. Pristup odbijen.", "admin_secret": "Administratorski panel zahtijeva `ADMIN_PASSWORD` u Streamlit Secrets.",
+    },
+    "en": {
+        "title": "🏛️ Agora Web — Protocol of Mind", "welcome": "Welcome back, {user}",
+        "quote": "The moment you were born, you became the past; if you are lucky enough for your present to last, use it to shape the future humanely.",
+        "intro": "This system is overseen by the Guardian of Agora. Each submitted text is analysed for analytical thinking, empathy, and synthesis before it is permanently recorded in the protocols.",
+        "topic": "Choose a discussion topic:", "thought": "Submit your thought to the Guardian of Agora:",
+        "placeholder": "Write your argument here...", "submit": "Submit for analysis", "empty": "Enter text for analysis first.",
+        "processing": "The Guardian of Agora is refining your thought...", "saved": "Your thought has been processed and permanently recorded in the protocols.",
+        "confirmed": "#### 🔓 Record confirmed", "confirmed_text": "The refinement was successful. Your thought meets Agora's standards and has been permanently recorded in the discussion protocols.",
+        "locked": "🔒 BLOCKED: Your thought contains cognitive barriers or bias. It has been archived for further reflection.",
+        "history": "📊 Collective analytics and thought history", "last": "### 🔍 Latest Guardian analysis", "submitted": "Submitted thought:",
+        "tone": "Emotional tone:", "scores": "Analytical scores:", "no_metrics": "Metric data is unavailable for this record.",
+        "archive": "📚 Browse the complete thought archive", "thought_number": "### 🧠 Thought #{number}", "author": "Author", "topic_label": "Topic", "argument": "Argument:", "anonymous": "Anonymous",
+        "admin": "🔐 Administrator settings", "password": "Enter the administrator password:", "access": "Access granted!", "add_topic": "### ➕ Add a new topic",
+        "topic_name": "New topic name:", "topic_example": "E.g. Freedom of speech vs. hate speech", "save_topic": "Save topic", "delete_topic": "### 🗑️ Delete a topic",
+        "choose_delete": "Choose a topic to permanently delete:", "confirm_delete": "I confirm that I want to permanently delete this topic and all its messages.",
+        "delete": "🚨 PERMANENTLY DELETE", "must_confirm": "Select the confirmation box before deleting.", "no_topics": "No topics are available for deletion.",
+        "wrong_password": "Incorrect password. Access denied.", "admin_secret": "The administrator panel requires `ADMIN_PASSWORD` in Streamlit Secrets.",
+    },
+}
+jezik = st.sidebar.selectbox("Jezik / Language", ["hr", "en"], format_func=lambda kod: "Hrvatski" if kod == "hr" else "English", key="jezik_agore")
+t = PRIJEVOIDI[jezik]
+NAZIVI_METRIKA = {
+    "hr": {"analitika": "Analitičnost", "empatija": "Empatija", "sinteza": "Sinteza", "suglasje": "Suglasje"},
+    "en": {"analitika": "Analysis", "empatija": "Empathy", "sinteza": "Synthesis", "suglasje": "Agreement"},
+}
+
 # ==============================================================================
 # 3. GLOBALNI AI PROMPT
 # ==============================================================================
@@ -118,6 +167,34 @@ Format odgovora MORA biti strogo strukturiran u ovom obliku (nemoj koristiti mar
 (Ovdje napiši POTPUNI PRIJEVOD korisnikovog izvornog teksta na ENGLESKI JEZIK, bez ikakvih tvojih komentara. Ako je status ZAKLJUČANO, ostavi ovo polje prazno.)
 
 ### [METRIKA]
+{"analitika": X, "empatija": Y, "sinteza": Z, "suglasje": S}
+"""
+
+if jezik == "en":
+    SYSTEM_PROMPT = """
+Role: You are the "Guardian of Agora", an advanced AI system for refining human thought.
+Do not take part in the debate. Analyse only the user's text, which can be in any language.
+
+Rate the text from 1 to 10 for analytical thinking (logic, evidence, consistency),
+empathy (understanding other sides and measured language), and synthesis (finding common ground).
+Write every explanatory part in English and use exactly this structure. Do not wrap JSON in a code block:
+
+### [1. TONE ANALYSIS]
+(One sentence about the tone.)
+
+### [2. OBSERVED COGNITIVE BARRIERS]
+- **[Fallacy or barrier]**: (Brief explanation.)
+
+### [3. REFINEMENT SUGGESTION]
+(An example of a revised text.)
+
+### [STATUS]
+(Write only LOCKED or UNLOCKED.)
+
+### [TRANSLATION]
+(A complete English translation of the original text. Leave empty if status is LOCKED.)
+
+### [METRICS]
 {"analitika": X, "empatija": Y, "sinteza": Z, "suglasje": S}
 """
 
@@ -410,24 +487,24 @@ def parsiraj_metriku_i_status(tekst_odgovora):
         return metrika, status
 
     try:
-        # 1. Izvlačenje JSON-a iz sekcije ### [METRIKA]
-        if "### [METRIKA]" in tekst_odgovora:
-            dijelovi = tekst_odgovora.split("### [METRIKA]")
-            if len(dijelovi) > 1:
-                json_tekst = dijelovi[1].strip()
-                json_tekst = re.sub(r"```[a-zA-Z]*", "", json_tekst).strip()
-                json_tekst = json_tekst.replace("```", "").strip()
-                json_mec = re.search(r"\{.*?\}", json_tekst, re.DOTALL)
-                if json_mec:
-                    ucitana_metrika = json.loads(json_mec.group(0))
-                    for kljuc in metrika:
-                        vrijednost = ucitana_metrika.get(kljuc, metrika[kljuc])
-                        metrika[kljuc] = max(0, min(10, int(vrijednost)))
+        # 1. Izvlačenje JSON-a iz sekcije ### [METRIKA] ili ### [METRICS]
+        metrika_mec = re.search(r"### \[(?:METRIKA|METRICS)\]\s*(.*)", tekst_odgovora, re.DOTALL)
+        if metrika_mec:
+            json_tekst = metrika_mec.group(1).strip()
+            json_tekst = re.sub(r"```[a-zA-Z]*", "", json_tekst).strip()
+            json_tekst = json_tekst.replace("```", "").strip()
+            json_mec = re.search(r"\{.*?\}", json_tekst, re.DOTALL)
+            if json_mec:
+                ucitana_metrika = json.loads(json_mec.group(0))
+                for kljuc in metrika:
+                    vrijednost = ucitana_metrika.get(kljuc, metrika[kljuc])
+                    metrika[kljuc] = max(0, min(10, int(vrijednost)))
             
         # 2. Izvlačenje statusa iz sekcije ### [STATUS]
-        status_mec = re.search(r"### \[STATUS\]\s*\n*(ZAKLJUČANO|OTKLJUČANO)", tekst_odgovora, re.IGNORECASE)
+        status_mec = re.search(r"### \[STATUS\]\s*\n*(ZAKLJUČANO|OTKLJUČANO|LOCKED|UNLOCKED)", tekst_odgovora, re.IGNORECASE)
         if status_mec:
-            status = status_mec.group(1).upper().strip()
+            procitani_status = status_mec.group(1).upper().strip()
+            status = "OTKLJUČANO" if procitani_status == "UNLOCKED" else "ZAKLJUČANO" if procitani_status == "LOCKED" else procitani_status
             
     except Exception:
         st.warning("⚠️ Čuvar Agore je vratio nestandardan format metrike, ali tekst je obrađen.")
@@ -450,34 +527,38 @@ ip_adresa = st.session_state.anonimni_id
 trenutni_korisnik = dohvati_ili_kreiraj_korisnika(ip_adresa)
 
 # Prikaz glavnog sučelja
-st.title("🏛️ Agora Web — Protokol Uma")
+st.title(t["title"])
 st.markdown(
     "<p style='color: #FFD700; font-size: 1.1rem; font-weight: 700;'>"
-    "Čim si se rodio postao si prošlost, ako imaš sreće da tvoj prezent potraje "
-    "iskoristi ga da humano oblkuje budućnost.</p>",
+    f"{t['quote']}</p>",
     unsafe_allow_html=True,
 )
-st.subheader(f"Dobrodošli natrag, {trenutni_korisnik}")
+st.subheader(t["welcome"].format(user=trenutni_korisnik))
 
-st.markdown("""
-Ovaj sustav nadzire Čuvar Agore. Svaki uneseni tekst bit će analiziran na analitičnost,
-empatiju i sintezu prije nego što bude trajno zapisan u protokole.
-""")
+st.markdown(t["intro"])
+
+# Izbornik za odabir teme rasprave
+aktivne_teme = dohvati_aktivne_teme()
+odabrana_tema = st.selectbox(
+    t["topic"],
+    aktivne_teme,
+    key="selectbox_izbor_teme_agora"
+)
 
 
 # 1. Polje za unos mora definirati varijablu pod nazivom 'korisnikov_tekst'
 korisnikov_tekst = st.text_area(
-    "Unesite svoju misao za Čuvara Agore:", 
-    placeholder="Napišite svoj argument ovdje..."
+    t["thought"],
+    placeholder=t["placeholder"]
 )
 
 # 2. Gumb za slanje na analizu
 status = None
-if st.button("Uputi na analizu"):
+if st.button(t["submit"]):
     if not korisnikov_tekst.strip():
-        st.warning("Najprije unesite tekst za analizu.")
+        st.warning(t["empty"])
     elif ai_klijent:
-        with st.spinner("Čuvar Agore pročišćava vašu misao..."):
+        with st.spinner(t["processing"]):
             try:
                 ai_odgovor = analiziraj_tekst_s_gemini(korisnikov_tekst)
                 if ai_odgovor:
@@ -493,22 +574,23 @@ if st.button("Uputi na analizu"):
                     )
                     if uspjeh:
                         status = analizirani_status
-                        st.success("Vaša misao je uspješno obrađena i trajno zapisana u protokole.")
+                        st.success(t["saved"])
             except Exception as e:
                 st.error(f"Greška tijekom komunikacije s AI: {e}")
 
 
 if status == "OTKLJUČANO":
-    st.balloons()
-    st.success("🔓 PROČIŠĆAVANJE USPJEŠNO (OTKLJUČANO): Tvoja misao zadovoljava standarde Agore i trajno je zapisana u protokole rasprave!")
+    with st.container(border=True):
+        st.markdown(t["confirmed"])
+        st.caption(t["confirmed_text"])
 elif status == "ZAKLJUČANO":
-    st.error("🔒 BLOKADA (ZAKLJUČANO): Tvoja misao sadrži blokade uma ili pristranosti. Zapisana je u arhivu radi daljnjeg rada na sebi.")
+    st.error(t["locked"])
 
 # Prikaz povijesti i analitike (izvan gumba, vidljivo uvijek)
                 
 if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     st.markdown("---")
-    st.subheader("📊 Kolektivna analitika i povijest misli")
+    st.subheader(t["history"])
     
     # Dohvaćamo zadnji zapis
     zadnji_zapis = st.session_state.baza_argumenata[-1]
@@ -517,30 +599,30 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
     
     # 1. Zasebna istaknuta sekcija za ZADNJU analizu (Moderni kontejner)
     with st.container(border=True):
-        st.markdown("### 🔍 Zadnja analiza Čuvara Agore")
+        st.markdown(t["last"])
         
         # Prikaz teksta koji je analiziran u obliku citata
         tekst_misli = zadnji_zapis.get('tekst', 'Nema teksta')
-        st.markdown(f"**Unesena misao:**\n> *{tekst_misli}*")
+        st.markdown(f"**{t['submitted']}**\n> *{tekst_misli}*")
         
         # Prikaz Tona s vizualnom značkom (badge)
-        st.markdown(f"**Emocionalni ton:** `{ton_za_prikaz}`")
+        st.markdown(f"**{t['tone']}** `{ton_za_prikaz}`")
         
         # Dinamički prikaz metrika u stupcima pomoću st.metric kartica
         if metrike_za_prikaz:
-            st.markdown("**Analitičke ocjene:**")
+            st.markdown(f"**{t['scores']}**")
             # Stvaramo onoliko stupaca koliko ima metričkih pokazatelja (Logika, Retorika...)
             stupci = st.columns(len(metrike_za_prikaz))
             
             for i, (kljuc, vrijednost) in enumerate(metrike_za_prikaz.items()):
                 with stupci[i]:
                     # Prikazuje lijepu karticu s nazivom metrike i ocjenom (npr. 8/10)
-                    st.metric(label=kljuc, value=f"{vrijednost} / 10")
+                    st.metric(label=NAZIVI_METRIKA[jezik].get(kljuc, kljuc), value=f"{vrijednost} / 10")
         else:
-            st.info("Metrički podaci nisu dostupni za ovaj zapis.")
+            st.info(t["no_metrics"])
 
        # 2. Arhiva/Povijest svih prethodnih misli (Sada uključuje sve zapise)
-    with st.expander("📚 Pregledaj cjelokupnu arhivu misli", expanded=False):
+    with st.expander(t["archive"], expanded=False):
         # Uzimamo sve zapise i okrećemo redoslijed da najnoviji bude na vrhu
         sve_misli = list(reversed(st.session_state.baza_argumenata))
         ukupno_zapisa = len(sve_misli)
@@ -551,19 +633,19 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
             
             # Koristimo st.chat_message ili manji uokvireni kontejner za svaku stariju misao
             with st.container(border=True):
-                st.markdown(f"### 🧠 Misao #{redni_broj}")
-                st.caption(f"👥 **Autor:** {zapis.get('korisnik', 'Anonimno')} | 📌 **Tema:** {zapis.get('tema', 'Općenito')}")
+                st.markdown(t["thought_number"].format(number=redni_broj))
+                st.caption(f"👥 **{t['author']}:** {zapis.get('korisnik', t['anonymous'])} | 📌 **{t['topic_label']}:** {zapis.get('tema', 'Općenito')}")
                 
-                st.markdown(f"**Argument:**\n> *{zapis.get('tekst', '')}*")
+                st.markdown(f"**{t['argument']}**\n> *{zapis.get('tekst', '')}*")
                 
                 # Prikaz tona i kratkih rezultata
                 t_ton = zapis.get('ton', zapis.get('Ton', 'Neutralan'))
                 m_metrike = zapis.get('metrika', zapis.get('metrike', {}))
-                metrike_linija = "  •  ".join([f"**{k}**: {v}/10" for k, v in m_metrike.items()])
+                metrike_linija = "  •  ".join([f"**{NAZIVI_METRIKA[jezik].get(k, k)}**: {v}/10" for k, v in m_metrike.items()])
                 
-                st.markdown(f"🎭 **Ton:** `{t_ton}`")
+                st.markdown(f"🎭 **{t['tone']}** `{t_ton}`")
                 if metrike_linija:
-                    st.markdown(f"📈 **Analitika:** {metrike_linija}")
+                    st.markdown(f"📈 **{t['scores']}** {metrike_linija}")
 
 
 
@@ -572,18 +654,18 @@ if "baza_argumenata" in st.session_state and st.session_state.baza_argumenata:
 # 8. ADMINISTRATORSKI PANEL (Upravljanje temama - Nadograđeno)
 # ==============================================================================
 st.sidebar.markdown("---")
-with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
-    admin_lozinka = st.text_input("Unesite administratorsku lozinku:", type="password")
+with st.sidebar.expander(t["admin"], expanded=False):
+    admin_lozinka = st.text_input(t["password"], type="password")
     admin_zaporka = st.secrets.get("ADMIN_PASSWORD")
 
     if admin_zaporka and admin_lozinka == admin_zaporka:
-        st.success("Pristup odobren!")
+        st.success(t["access"])
         
                # --- SEKCIJA 1: DODAVANJE NOVE TEME ---
-        st.write("### ➕ Dodaj novu temu")
-        nova_tema_input = st.text_input("Naziv nove teme:", placeholder="Npr. Sloboda govora vs. Govor mržnje")
+        st.write(t["add_topic"])
+        nova_tema_input = st.text_input(t["topic_name"], placeholder=t["topic_example"])
         
-        if st.button("Spremi temu", use_container_width=True):
+        if st.button(t["save_topic"], use_container_width=True):
             # Sve linije ispod moraju biti uvučene za točno 4 razmaka više od 'if' izjave
             uspjeh, poruka = dodaj_novu_temu(nova_tema_input)
             if uspjeh:
@@ -598,19 +680,19 @@ with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
         st.write("---")
         
         # --- SEKCIJA 2: BRISANJE POSTOJEĆE TEME ---
-        st.write("### 🗑️ Obriši temu")
+        st.write(t["delete_topic"])
         sve_teme_za_brisanje = dohvati_aktivne_teme()
         
         # Filtriramo privremenu/glavnu temu ako ne želimo da se slučajno obriše
         opcije_brisanja = [t for t in sve_teme_za_brisanje if t != "Općenito"]
         
         if opcije_brisanja:
-            tema_za_uklanjanje = st.selectbox("Odaberite temu za trajno brisanje:", opcije_brisanja, key="delete_select")
+            tema_za_uklanjanje = st.selectbox(t["choose_delete"], opcije_brisanja, key="delete_select")
             
             # Sigurnosna kvačica kako se ne bi obrisalo slučajnim klikom
-            potvrda_brisanja = st.checkbox("Potvrđujem da želim trajno obrisati ovu temu i sve njezine poruke.")
+            potvrda_brisanja = st.checkbox(t["confirm_delete"])
             
-            if st.button("🚨 TRAJNO OBRIŠI", use_container_width=True, type="primary"):
+            if st.button(t["delete"], use_container_width=True, type="primary"):
                 if potvrda_brisanja:
                     uspjeh, poruka = obrisi_temu(tema_za_uklanjanje)
                     if uspjeh:
@@ -620,11 +702,11 @@ with st.sidebar.expander("🔐 Administratorske postavke", expanded=False):
                     else:
                         st.error(poruka)
                 else:
-                    st.warning("Morate označiti kućicu za potvrdu prije brisanja!")
+                    st.warning(t["must_confirm"])
         else:
-            st.info("Nema tema dostupnih za brisanje.")
+            st.info(t["no_topics"])
             
     elif admin_lozinka != "":
-        st.error("Pogrešna lozinka. Pristup odbijen.")
+        st.error(t["wrong_password"])
     elif not admin_zaporka:
-        st.info("Administratorski panel zahtijeva `ADMIN_PASSWORD` u Streamlit Secrets.")
+        st.info(t["admin_secret"])
