@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Greška {{ code }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="label">SVJETIONIK — DIJAGNOSTIKA</div>
+  <h1>Nešto je pošlo po zlu.</h1>
+  <p>{{ message }}</p>
+  <a class="button primary" href="{{ url_for('index') }}">← Povratak na početak</a>
+</section>
+{% endblock %}

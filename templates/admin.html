@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Administracija{% endblock %}{% block content %}
+<h1>Administracija</h1>
+<section class="card"><h2>Teme iz Agora baze</h2>
+{% for t in topics %}<div class="admin-row"><div><strong>{{t.naziv}}</strong><small>{{t.opinion_count}} mišljenja · {{t.prediction_count}} predviđanja · {% if t.aktivna %}AKTIVNA{% else %}SKRIVENA{% endif %}</small></div></div>{% endfor %}
+<p class="muted">U V5.3 ne mijenjamo postojeću strukturu tablice <code>teme</code>. Uvodni sadržaj V4.1.1 čuva se u aplikaciji.</p></section>
+<section class="card"><h2>Registar predviđanja</h2>
+{% for p in pending %}<div class="admin-row"><div><strong>{{p.predvidjanje}}</strong><small>{{p.tema_naziv}} · {{p.korisnik_pseudonim}} · rok {{p.rok}} · {{p.status}}</small></div>
+<form method="post" action="{{url_for('admin_prediction',prediction_id=p.id)}}"><input type="hidden" name="csrf_token" value="{{csrf_token}}">
+<select name="status"><option value="otvoreno">Otvoreno</option><option value="ostvareno">Ostvareno</option><option value="nije_ostvareno">Nije ostvareno</option><option value="djelomicno">Djelomično</option><option value="neprovjerljivo">Neprovjerljivo</option></select>
+<input name="ishod" placeholder="Ishod"><input name="biljeska" placeholder="Bilješka"><button>Spremi</button></form></div>
+{% else %}<p class="muted">Nema predviđanja.</p>{% endfor %}</section>
+<form method="post" action="{{url_for('admin_logout')}}"><input type="hidden" name="csrf_token" value="{{csrf_token}}"><button>Odjava</button></form>
+{% endblock %}

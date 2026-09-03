@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Predviđanja · Civilizacijski svjetionik{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="label">VRIJEME KAO SUDAC</div>
+  <h1>Što smo predvidjeli — i što se dogodilo?</h1>
+  <p>Predviđanje se ne proglašava istinitim zato što zvuči uvjerljivo. Čeka provjeru stvarnosti.</p>
+</section>
+{% for p in predictions %}
+<article class="opinion">
+  <div class="opinion-head"><strong>{{ p.pseudonym }}</strong><span>provjera: {{ p.rok }}</span></div>
+  <div class="label">{{ p.topic_title }}</div>
+  <h3>{{ p.claim }}</h3>
+  <p>{{ p.predvidjanje }}</p>
+  <div class="status">{{ p.status }}</div>
+  {% if p.ishod %}<p><b>Ishod:</b> {{ p.ishod }}</p>{% endif %}
+  {% if p.provjereno_at %}<small>Provjereno: {{ p.provjereno_at[:16].replace('T',' ') }}</small>{% endif %}
+  {% if p.biljeska %}<p class="muted">{{ p.biljeska }}</p>{% endif %}
+</article>
+{% else %}<p class="muted">Još nema zabilježenih predviđanja.</p>{% endfor %}
+{% endblock %}
