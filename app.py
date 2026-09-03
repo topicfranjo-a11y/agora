@@ -95,8 +95,11 @@ def current_user():
 
 @app.context_processor
 def globals_for_templates():
+    user = current_user()
+    user_view = dict(user or {})
+    user_view["pseudonym"] = user_view.get("pseudonim", "Gost")
     return {
-        "current_user": current_user(),
+        "current_user": user_view,
         "admin_logged": session.get("admin_logged", False),
         "csrf_token": csrf_token(),
     }
@@ -165,7 +168,7 @@ def health():
             missing = [x for x in required if x not in names]
         if missing:
             return {"status": "error", "database": "connected", "missing_tables": missing}, 500
-        return {"status": "ok", "database": "connected", "schema": "v5.3"}
+        return {"status": "ok", "database": "connected", "schema": "v5.3.1"}
     except Exception as exc:
         app.logger.exception("Health check failed")
         return {"status": "error", "database": "unavailable", "detail": str(exc)}, 500
@@ -200,7 +203,13 @@ def index():
             LIMIT 12
         """).fetchall()
 
-    topics = [topic_view(x) for x in topics_raw]
+    topics = []
+    for x in topics_raw:
+        tv = topic_view(x)
+        tv["title"] = tv["naziv"]
+        tv["participants"] = tv.get("opinion_count", 0) + tv.get("agora_count", 0)
+        tv["avg_score"] = None
+        topics.append(tv)
     return render_template("index.html", topics=topics, legacy_args=legacy_args, opinions=opinions)
 
 @app.get("/topic/<int:topic_id>")
@@ -377,6 +386,29 @@ def save_reply(opinion_id):
             VALUES (%s,%s,%s,%s)
         """, (opinion_id, user["ip_adresa"], user["pseudonim"], text))
     return redirect(request.referrer or url_for("index"))
+
+
+@app.get("/opinion/<int:opinion_id>")
+def opinion_detail(opinion_id):
+    with db() as conn:
+        m = conn.execute("SELECT * FROM svjetionik_misljenja WHERE id=%s", (opinion_id,)).fetchone()
+        if not m:
+            abort(404)
+        analyses = conn.execute("""
+            SELECT model, verzija, jasnoća, logika, dokazi, pretpostavke,
+                   kontraargumenti, provjerljivost, obrazlozenje, stvoreno_at
+            FROM svjetionik_analize WHERE misljenje_id=%s ORDER BY id DESC
+        """, (opinion_id,)).fetchall()
+        replies = conn.execute("""
+            SELECT korisnik_pseudonim, tekst, stvoreno_at
+            FROM svjetionik_odgovori WHERE misljenje_id=%s ORDER BY id
+        """, (opinion_id,)).fetchall()
+        predictions = conn.execute("""
+            SELECT * FROM svjetionik_predvidjanja
+            WHERE misljenje_id=%s ORDER BY id DESC
+        """, (opinion_id,)).fetchall()
+    return render_template("opinion.html", opinion=m, analyses=analyses,
+                           replies=replies, predictions=predictions)
 
 @app.get("/predictions")
 def predictions():

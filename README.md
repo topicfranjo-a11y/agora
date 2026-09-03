@@ -1,34 +1,21 @@
-# agora-baza — Civilizacijski svjetionik V5.1
+# Civilizacijski svjetionik V5.3
 
-Aplikacija koristi postojeću Neon PostgreSQL bazu projekta `agora-baza`.
+V5.3 je integracija V4.1.1 funkcionalnosti s postojećom Neon bazom `agora-baza`.
 
-Postojeće tablice ostaju netaknute:
-- korisnici
-- teme
-- rasprave
-- argumenti
+## Glavno
+- postojeće Agora teme, argumenti i korisnici ostaju netaknuti
+- V4.1.1 urednički sadržaj tema je sačuvan u aplikaciji
+- nova mišljenja koriste `svjetionik_*` tablice
+- predviđanja se zapisuju i kasnije provjeravaju
+- početna heuristička analiza jasno je označena kao privremena
+- nema SQLite baze
 
-V5.1 koristi nove tablice:
-- svjetionik_misljenja
-- svjetionik_odgovori
-- svjetionik_analize
-- svjetionik_predvidjanja
-- svjetionik_verzije_misljenja
-- svjetionik_ai_dogadaji
+## Render
+Build: `pip install -r requirements.txt`
+Start: `gunicorn app:app`
+Health: `/health`
 
-## Pokretanje
-
-Postavi varijable:
-DATABASE_URL
-SECRET_KEY
-ADMIN_PASSWORD
-PORT (opcionalno, zadano 5000)
-
-Zatim:
-pip install -r requirements.txt
-python app.py
-
-Health:
-GET /health
-
-Napomena: analiza je zasad privremena heuristika. Pravi AI analizator treba spojiti u sljedećoj fazi.
+Potrebne varijable:
+- `DATABASE_URL`
+- `SECRET_KEY`
+- `ADMIN_PASSWORD`

@@ -1,1 +1,56 @@
-{% extends "base.html" %}{% block content %}<div class="card"><h1>{{m.tvrdnja}}</h1><p><b>{{m.korisnik_pseudonim}}</b> · {{m.tema_naziv}}</p><h3>Argument</h3><p>{{m.argument}}</p><h3>Dokaz</h3><p>{{m.dokaz}}</p><h3>Pretpostavke</h3><p>{{m.pretpostavke}}</p><h3>Kontraargument</h3><p>{{m.kontraargument}}</p><h3>Zaključak</h3><p>{{m.zakljucak}}</p>{% if m.predvidjanje %}<h3>Predviđanje</h3><p>{{m.predvidjanje}}{% if m.datum_predvidjanja %} — {{m.datum_predvidjanja}}{% endif %}</p>{% endif %}<form method="post" action="{{url_for('analiziraj',misljenje_id=m.id)}}"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn">Pokreni analizu</button></form></div><h2>Analize</h2>{% for a in analize %}<div class="card"><b>{{a.model}}</b><div class="grid">{% for key,label in [('jasnoća','Jasnoća'),('logika','Logika'),('dokazi','Dokazi'),('pretpostavke','Pretpostavke'),('kontraargumenti','Kontraargumenti'),('provjerljivost','Provjerljivost')] %}<div><span class="muted">{{label}}</span><div class="score">{{a[key]}}</div></div>{% endfor %}</div><p>{{a.obrazlozenje}}</p></div>{% else %}<p>Nema analize.</p>{% endfor %}<h2>Odgovori</h2>{% for o in odgovori %}<div class="card"><b>{{o.korisnik_pseudonim}}</b><p>{{o.tekst}}</p></div>{% endfor %}<form method="post" action="{{url_for('odgovor',misljenje_id=m.id)}}"><input type="hidden" name="_csrf" value="{{csrf}}"><textarea name="tekst" placeholder="Napiši protuargument ili odgovor..."></textarea><button class="btn">Odgovori</button></form>{% endblock %}
+
+{% extends "base.html" %}
+{% block title %}Mišljenje · Civilizacijski svjetionik{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="label">{{ opinion.tema_naziv }}</div>
+  <h1>{{ opinion.tvrdnja }}</h1>
+  <p class="meta">{{ opinion.korisnik_pseudonim }} · {{ opinion.stvoreno_at }}</p>
+</section>
+
+<div class="grid">
+  <article class="card"><div class="label">ARGUMENT</div><p>{{ opinion.argument or "—" }}</p></article>
+  <article class="card"><div class="label">DOKAZ</div><p>{{ opinion.dokaz or "—" }}</p></article>
+  <article class="card"><div class="label">PRETPOSTAVKE</div><p>{{ opinion.pretpostavke or "—" }}</p></article>
+  <article class="card"><div class="label">KONTRAARGUMENT</div><p>{{ opinion.kontraargument or "—" }}</p></article>
+  <article class="card"><div class="label">ZAKLJUČAK</div><p>{{ opinion.zakljucak or "—" }}</p></article>
+</div>
+
+{% for a in analyses %}
+<section class="card">
+  <div class="label">ANALIZA · {{ a.model }}</div>
+  <div class="scores">
+    <span>Jasnoća {{ a.jasnoća }}/10</span>
+    <span>Logika {{ a.logika }}/10</span>
+    <span>Dokazi {{ a.dokazi }}/10</span>
+    <span>Pretpostavke {{ a.pretpostavke }}/10</span>
+    <span>Kontraargumenti {{ a.kontraargumenti }}/10</span>
+    <span>Provjerljivost {{ a.provjerljivost }}/10</span>
+  </div>
+  <p>{{ a.obrazlozenje }}</p>
+</section>
+{% endfor %}
+
+{% for p in predictions %}
+<section class="card">
+  <div class="label">PREDVIĐANJE</div>
+  <h3>{{ p.predvidjanje }}</h3>
+  <p>Rok: {{ p.rok }} · Status: {{ p.status }}</p>
+  {% if p.ishod %}<p><b>Ishod:</b> {{ p.ishod }}</p>{% endif %}
+</section>
+{% endfor %}
+
+<section class="card">
+  <div class="label">PROTUARGUMENTI</div>
+  {% for r in replies %}
+    <article class="opinion"><strong>{{ r.korisnik_pseudonim }}</strong><p>{{ r.tekst }}</p><small>{{ r.stvoreno_at }}</small></article>
+  {% else %}
+    <p class="muted">Još nema odgovora.</p>
+  {% endfor %}
+  <form method="post" action="{{ url_for('save_reply', opinion_id=opinion.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <textarea name="text" required placeholder="Iznesi ozbiljan protuargument..."></textarea>
+    <button>Objavi odgovor</button>
+  </form>
+</section>
+{% endblock %}
