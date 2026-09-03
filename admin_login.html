@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Administracija{% endblock %}{% block content %}
+<section class="card narrow">
+<h1>Administratorska prijava</h1>
+<form method="post" class="editor">
+<input type="hidden" name="csrf_token" value="{{csrf_token}}">
+<input type="password" name="password" placeholder="Lozinka" required>
+<button class="primary">Prijava</button>
+</form>
+</section>
+{% endblock %}
