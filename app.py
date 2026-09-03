@@ -497,8 +497,8 @@ def admin_v54():
                 "replies": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_odgovori").fetchone()["n"],
                 "predictions": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_predvidjanja").fetchone()["n"],
                 "open_predictions": conn.execute(
-                    "SELECT COUNT(*) FROM svjetionik_predvidjanja WHERE status='otvoreno'"
-                ).fetchone()[0],
+                    "SELECT COUNT(*) AS n FROM svjetionik_predvidjanja WHERE status='otvoreno'"
+                ).fetchone()["n"],
                 "participants": conn.execute("SELECT COUNT(*) AS n FROM korisnici").fetchone()["n"],
                 "analyses": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_analize").fetchone()["n"],
             }
@@ -679,7 +679,7 @@ def admin_participants_v54():
                 FROM korisnici k
                 LEFT JOIN svjetionik_misljenja m ON m.korisnik_ip=k.ip_adresa
                 LEFT JOIN svjetionik_odgovori r ON r.korisnik_ip=k.ip_adresa
-                LEFT JOIN svjetionik_predvidjanja p ON p.korisnik_ip=k.ip_adresa
+                LEFT JOIN svjetionik_predvidjanja p ON p.misljenje_id=m.id
                 GROUP BY k.ip_adresa,k.pseudonim,k.datum_registracije
                 ORDER BY k.datum_registracije DESC""").fetchall()
         return render_template("admin_participants_v54.html", participants=participants)
