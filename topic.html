@@ -1,8 +1,84 @@
-{% extends "base.html" %}{% block title %}{{topic.title}}{% endblock %}{% block content %}<a class="back" href="{{url_for('index')}}">← Sve teme</a><section class="hero"><div class="label">TEMA</div><h1>{{topic.title}}</h1><p>{{topic.intro}}</p>{% if topic.question %}<blockquote>{{topic.question}}</blockquote>{% endif %}</section>{% if topic.goal %}<section class="card"><div class="label">CILJ RASPRAVE</div><p>{{topic.goal}}</p></section>{% endif %}<div class="grid two">{% if topic.key_questions %}<section class="card"><div class="label">KLJUČNA PITANJA</div><ul>{% for q in topic.key_questions.split('\n') if q.strip() %}<li>{{q}}</li>{% endfor %}</ul></section>{% endif %}{% if topic.rules %}<section class="card"><div class="label">PRAVILA</div><p>{{topic.rules|replace('\n','<br>')|safe}}</p></section>{% endif %}</div>{% if topic.sources %}<section class="card"><div class="label">IZVORI</div><p>{{topic.sources|replace('\n','<br>')|safe}}</p></section>{% endif %}<a class="button primary" href="{{url_for('write',topic_id=topic.id)}}">Iznesi svoje mišljenje</a><section class="card"><div class="label">AGORA ARHIVA</div><h2>Postojeći argumenti</h2>
-{% for a in legacy_args %}<article class="opinion"><div class="opinion-head"><strong>{{a.korisnik}}</strong><span>{{a.datum}}</span></div><p>{{a.tekst}}</p>
-<div class="scores"><span>Analitika {{a.ocjena_analitika if a.ocjena_analitika is not none else "—"}}</span><span>Empatija {{a.ocjena_empatija if a.ocjena_empatija is not none else "—"}}</span><span>Sinteza {{a.ocjena_sinteza if a.ocjena_sinteza is not none else "—"}}</span><span>Suglasje {{a.ocjena_suglasje if a.ocjena_suglasje is not none else "—"}}</span></div></article>
-{% else %}<p class="muted">Nema postojećih Agora argumenata za ovu temu.</p>{% endfor %}</section>
-<h2>Misli zajednice</h2>{% for o in opinions %}<article class="opinion"><div class="opinion-head"><strong>{{o.pseudonym}}</strong><span>{{o.created_at[:16].replace('T',' ')}}</span></div>{% if o.claim %}<h3>Tvrdnja</h3><p>{{o.claim}}</p>{% endif %}{% if o.argument %}<h3>Argument</h3><p>{{o.argument}}</p>{% endif %}{% if o.evidence_text %}<h3>Dokaz</h3><p>{{o.evidence_text}}</p>{% endif %}{% if o.assumptions_text %}<h3>Pretpostavke</h3><p>{{o.assumptions_text}}</p>{% endif %}{% if o.counterargument_text %}<h3>Kontraargument</h3><p>{{o.counterargument_text}}</p>{% endif %}{% if o.conclusion %}<h3>Zaključak</h3><p>{{o.conclusion}}</p>{% endif %}{% if o.analysis %}<div class="scores"><span>Jasnoća {{o.analysis.jasnoća}}/10</span><span>Logika {{o.analysis.logika}}/10</span><span>Dokazi {{o.analysis.dokazi}}/10</span><span>Pretpostavke {{o.analysis.pretpostavke}}/10</span><span>Kontraargumenti {{o.analysis.kontraargumenti}}/10</span><span>Provjerljivost {{o.analysis.provjerljivost}}/10</span></div>{% endif %}
-{% if o.predvidjanje %}<fieldset><legend>PREDVIĐANJE</legend><p>{{o.predvidjanje}}</p><p class="muted">Rok provjere: {{o.datum_predvidjanja or "—"}}</p></fieldset>{% endif %}
-<p class="muted">{{o.reply_count}} odgovora · {{o.prediction_count}} predviđanja</p>
-{% for r in replies.get(o.id, []) %}<div class="card"><strong>{{r.korisnik_pseudonim}}</strong><p>{{r.tekst}}</p><small>{{r.stvoreno_at}}</small></div>{% endfor %}<form method="post" action="{{url_for('save_reply',opinion_id=o.id)}}"><input type="hidden" name="csrf_token" value="{{csrf_token}}"><input name="text" placeholder="Dodaj ozbiljan protuargument ili odgovor…"><button>Odgovori</button></form></article>{% else %}<p class="muted">Još nema mišljenja.</p>{% endfor %}{% endblock %}
+{% extends "base.html" %}
+{% block title %}{{ topic.title }} · Civilizacijski svjetionik{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('index') }}">← Sve teme</a>
+<section class="hero">
+  <div class="label">TEMA</div>
+  <h1>{{ topic.title }}</h1>
+  <p>{{ topic.intro }}</p>
+  {% if topic.question %}<blockquote>{{ topic.question }}</blockquote>{% endif %}
+</section>
+
+{% if topic.goal %}
+<section class="card"><div class="label">CILJ RASPRAVE</div><p>{{ topic.goal }}</p></section>
+{% endif %}
+
+<div class="grid two">
+  {% if topic.key_questions %}
+  <section class="card">
+    <div class="label">KLJUČNA PITANJA</div>
+    <ul>{% for q in topic.key_questions.split('\n') if q.strip() %}<li>{{ q }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+  {% if topic.rules %}
+  <section class="card"><div class="label">PRAVILA</div><p>{{ topic.rules|replace('\n','<br>')|safe }}</p></section>
+  {% endif %}
+</div>
+
+<a class="button primary" href="{{ url_for('write', topic_id=topic.id) }}">Iznesi svoje mišljenje</a>
+
+<section class="card">
+  <div class="label">AGORA ARHIVA</div>
+  <h2>Postojeći argumenti</h2>
+  {% for a in legacy_args %}
+    <article class="opinion">
+      <div class="opinion-head"><strong>{{ a.korisnik }}</strong><span>{{ a.datum }}</span></div>
+      <p>{{ a.tekst }}</p>
+    </article>
+  {% else %}<p class="muted">Nema postojećih Agora argumenata za ovu temu.</p>{% endfor %}
+</section>
+
+<section class="card">
+  <div class="label">SVJETIONIK</div>
+  <h2>Misli zajednice</h2>
+  {% for o in opinions %}
+  <article class="opinion">
+    <div class="opinion-head">
+      <strong>{{ o.korisnik_pseudonim }}</strong>
+      <span>{{ o.stvoreno_at[:16].replace('T',' ') if o.stvoreno_at else '' }}</span>
+    </div>
+    <h3>Tvrdnja</h3><p>{{ o.tvrdnja or '—' }}</p>
+    {% if o.argument %}<h3>Argument</h3><p>{{ o.argument }}</p>{% endif %}
+    {% if o.dokaz %}<h3>Dokaz</h3><p>{{ o.dokaz }}</p>{% endif %}
+    {% if o.pretpostavke %}<h3>Pretpostavke</h3><p>{{ o.pretpostavke }}</p>{% endif %}
+    {% if o.kontraargument %}<h3>Kontraargument</h3><p>{{ o.kontraargument }}</p>{% endif %}
+    {% if o.zakljucak %}<h3>Zaključak</h3><p>{{ o.zakljucak }}</p>{% endif %}
+    {% if o.analysis %}
+    <div class="scores">
+      <span>Jasnoća {{ o.analysis.jasnoća }}/10</span>
+      <span>Logika {{ o.analysis.logika }}/10</span>
+      <span>Dokazi {{ o.analysis.dokazi }}/10</span>
+      <span>Pretpostavke {{ o.analysis.pretpostavke }}/10</span>
+      <span>Kontraargumenti {{ o.analysis.kontraargumenti }}/10</span>
+      <span>Provjerljivost {{ o.analysis.provjerljivost }}/10</span>
+    </div>
+    {% endif %}
+    {% if o.predvidjanje %}
+      <fieldset><legend>PREDVIĐANJE</legend>
+        <p>{{ o.predvidjanje }}</p>
+        <p class="muted">Rok provjere: {{ o.datum_predvidjanja or '—' }}</p>
+      </fieldset>
+    {% endif %}
+    <p class="muted">{{ o.reply_count }} odgovora · {{ o.prediction_count }} predviđanja</p>
+    {% for r in replies.get(o.id, []) %}
+      <div class="card"><strong>{{ r.korisnik_pseudonim }}</strong><p>{{ r.tekst }}</p><small>{{ r.stvoreno_at }}</small></div>
+    {% endfor %}
+    <form method="post" action="{{ url_for('save_reply', opinion_id=o.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <textarea name="text" required placeholder="Dodaj ozbiljan protuargument ili odgovor…"></textarea>
+      <button>Odgovori</button>
+    </form>
+  </article>
+  {% else %}<p class="muted">Još nema mišljenja Svjetionika.</p>{% endfor %}
+</section>
+{% endblock %}

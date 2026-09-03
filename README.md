@@ -19,3 +19,7 @@ Potrebne varijable:
 - `DATABASE_URL`
 - `SECRET_KEY`
 - `ADMIN_PASSWORD`
+
+
+## V5.3.2
+Popravljen globalni korisnički kontekst koji je mogao rušiti `/` dok `/health` radi; usklađeni su V5 nazivi polja u topic/predictions predlošcima; `/health` označava schema v5.3.2.

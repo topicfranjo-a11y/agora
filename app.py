@@ -66,52 +66,54 @@ def validate_csrf():
 def client_ip():
     return request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
 
-def current_user():
-    # Keep the V4.1.1 anonymous-profile idea, backed by the existing Agora users table.
-    ip = client_ip()
-    with db() as conn:
-        u = conn.execute(
-            "SELECT ip_adresa, pseudonim, datum_registracije FROM korisnici WHERE ip_adresa=%s",
-            (ip,)
-        ).fetchone()
-    if u:
-        return u
+def current_user(create=True):
+    """Return the anonymous Agora profile, without ever breaking page rendering."""
+    ip = client_ip() or "unknown"
+    try:
+        with db() as conn:
+            u = conn.execute(
+                "SELECT ip_adresa, pseudonim, datum_registracije "
+                "FROM korisnici WHERE ip_adresa=%s",
+                (ip,)
+            ).fetchone()
+        if u or not create:
+            return u or {"ip_adresa": ip, "pseudonim": "Gost"}
 
-    pseudonym = "Mislioc-" + uuid.uuid4().hex[:5].upper()
-    with db() as conn:
-        try:
+        pseudonym = "Mislioc-" + uuid.uuid4().hex[:5].upper()
+        with db() as conn:
             u = conn.execute("""
                 INSERT INTO korisnici (ip_adresa, pseudonim, datum_registracije)
                 VALUES (%s,%s,%s)
+                ON CONFLICT (ip_adresa) DO UPDATE
+                SET pseudonim = korisnici.pseudonim
                 RETURNING ip_adresa, pseudonim, datum_registracije
             """, (ip, pseudonym, now_iso())).fetchone()
-        except psycopg.errors.UniqueViolation:
-            conn.rollback()
-            u = conn.execute(
-                "SELECT ip_adresa, pseudonim, datum_registracije FROM korisnici WHERE ip_adresa=%s",
-                (ip,)
-            ).fetchone()
-    return u
+        return u
+    except Exception:
+        app.logger.exception("current_user failed")
+        return {"ip_adresa": ip, "pseudonim": "Gost"}
+
 
 @app.context_processor
 def globals_for_templates():
-    user = current_user()
-    user_view = dict(user or {})
-    user_view["pseudonym"] = user_view.get("pseudonim", "Gost")
+    # Do not touch PostgreSQL here. The homepage must remain renderable even if
+    # the anonymous-profile table is temporarily unavailable.
     return {
-        "current_user": user_view,
-        "admin_logged": session.get("admin_logged", False),
+        "current_user": {"pseudonym": "Gost", "pseudonim": "Gost"},
+        "admin_logged": bool(session.get("admin_logged", False)),
         "csrf_token": csrf_token(),
     }
+
 
 def topic_view(row):
     if not row:
         return None
     d = dict(row)
-    extra = TOPIC_CONTENT.get(d["naziv"], {})
+    extra = TOPIC_CONTENT.get(d.get("naziv"), {})
     for k, v in extra.items():
         if not d.get(k):
             d[k] = v
+    d["title"] = d.get("naziv", "")
     return d
 
 def analyze(text, topic=None):
@@ -168,7 +170,7 @@ def health():
             missing = [x for x in required if x not in names]
         if missing:
             return {"status": "error", "database": "connected", "missing_tables": missing}, 500
-        return {"status": "ok", "database": "connected", "schema": "v5.3.1"}
+        return {"status": "ok", "database": "connected", "schema": "v5.3.2"}
     except Exception as exc:
         app.logger.exception("Health check failed")
         return {"status": "error", "database": "unavailable", "detail": str(exc)}, 500
@@ -230,6 +232,13 @@ def topic(topic_id):
 
         opinions = conn.execute("""
             SELECT m.*,
+                   m.korisnik_pseudonim AS pseudonym,
+                   m.stvoreno_at AS created_at,
+                   m.tvrdnja AS claim,
+                   m.dokaz AS evidence_text,
+                   m.pretpostavke AS assumptions_text,
+                   m.kontraargument AS counterargument_text,
+                   m.zakljucak AS conclusion,
                    (SELECT COUNT(*) FROM svjetionik_odgovori r WHERE r.misljenje_id=m.id) AS reply_count,
                    (SELECT COUNT(*) FROM svjetionik_predvidjanja p WHERE p.misljenje_id=m.id) AS prediction_count
             FROM svjetionik_misljenja m
@@ -269,7 +278,7 @@ def save_opinion(topic_id):
     if not validate_csrf():
         abort(400)
 
-    user = current_user()
+    user = current_user(create=True)
     fields = {
         k: request.form.get(k, "").strip()
         for k in ["claim", "argument", "evidence_text", "assumptions_text", "counterargument_text", "conclusion"]
@@ -375,7 +384,7 @@ def save_reply(opinion_id):
         flash("Protuargument/odgovor mora imati barem 5 znakova.", "error")
         return redirect(request.referrer or url_for("index"))
 
-    user = current_user()
+    user = current_user(create=True)
     with db() as conn:
         exists = conn.execute("SELECT id FROM svjetionik_misljenja WHERE id=%s", (opinion_id,)).fetchone()
         if not exists:
@@ -430,7 +439,7 @@ def change_pseudonym():
     if not validate_csrf():
         abort(400)
     name = request.form.get("pseudonym", "").strip()
-    user = current_user()
+    user = current_user(create=True)
     if 3 <= len(name) <= 30:
         with db() as conn:
             conn.execute("UPDATE korisnici SET pseudonim=%s WHERE ip_adresa=%s", (name, user["ip_adresa"]))
