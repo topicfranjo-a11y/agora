@@ -511,18 +511,38 @@ def admin_v54():
 def admin_topic_new_v54():
     if not admin_required_v54():
         return admin_redirect_v54()
+
     if request.method == "POST":
+        if not validate_csrf():
+            abort(400)
+
         name = request.form.get("title", "").strip()
         if not name:
             flash("Naziv teme je obavezan.", "error")
             return redirect(url_for("admin_topic_new_v54"))
+
+        # Postojeća Neon tablica 'teme' ima samo naziv/aktivna.
+        # Bogati urednički sadržaj ostaje u TOPIC_CONTENT dok ne uvedemo
+        # zasebnu trajnu tablicu.
         try:
             with db() as conn:
-                row = conn.execute(
-                    """INSERT INTO teme (naziv, aktivna) VALUES (%s,%s)
-                       ON CONFLICT (naziv) DO UPDATE SET aktivna=EXCLUDED.aktivna
-                       RETURNING id, naziv, aktivna""", (name, True)
+                existing = conn.execute(
+                    "SELECT id FROM teme WHERE naziv=%s",
+                    (name,)
                 ).fetchone()
+
+                if existing:
+                    flash("Tema s tim nazivom već postoji.", "error")
+                    return redirect(url_for("admin_topic_new_v54"))
+
+                row = conn.execute(
+                    """INSERT INTO teme (naziv, aktivna)
+                       VALUES (%s, TRUE)
+                       RETURNING id, naziv, aktivna""",
+                    (name,)
+                ).fetchone()
+                conn.commit()
+
             TOPIC_CONTENT[name] = {
                 "intro": request.form.get("intro", "").strip(),
                 "question": request.form.get("question", "").strip(),
@@ -532,49 +552,88 @@ def admin_topic_new_v54():
                 "ai_criteria": request.form.get("ai_criteria", "").strip(),
                 "sources": request.form.get("sources", "").strip(),
             }
-            flash("Tema je dodana.", "success")
+
+            app.logger.info("Nova tema dodana: id=%s naziv=%s", row["id"], row["naziv"])
+            flash("Tema je uspješno dodana.", "success")
             return redirect(url_for("admin_v54"))
+
         except Exception as exc:
-            app.logger.exception("Dodavanje teme nije uspjelo")
-            flash(f"Greška: {exc}", "error")
+            app.logger.exception("Dodavanje teme nije uspjelo: %s", exc)
+            flash(f"Greška pri dodavanju teme: {exc}", "error")
+            return redirect(url_for("admin_topic_new_v54"))
+
     return render_template("admin_topic_v54.html", mode="new", topic=None)
+
 
 @app.route("/admin/topic/<int:topic_id>/edit", methods=["GET", "POST"])
 def admin_topic_edit_v54(topic_id):
     if not admin_required_v54():
         return admin_redirect_v54()
+
     try:
         with db() as conn:
-            topic = conn.execute("SELECT id,naziv,aktivna FROM teme WHERE id=%s", (topic_id,)).fetchone()
-        if not topic:
-            abort(404)
-        topic = topic_view(topic)
-        if request.method == "POST":
-            name = request.form.get("title", "").strip()
-            if not name:
-                flash("Naziv teme je obavezan.", "error")
-                return redirect(url_for("admin_topic_edit_v54", topic_id=topic_id))
-            with db() as conn:
-                conn.execute("UPDATE teme SET naziv=%s, aktivna=%s WHERE id=%s",
-                             (name, bool(request.form.get("active")), topic_id))
-            TOPIC_CONTENT[name] = {
-                "intro": request.form.get("intro", "").strip(),
-                "question": request.form.get("question", "").strip(),
-                "goal": request.form.get("goal", "").strip(),
-                "key_questions": request.form.get("key_questions", "").strip(),
-                "rules": request.form.get("rules", "").strip(),
-                "ai_criteria": request.form.get("ai_criteria", "").strip(),
-                "sources": request.form.get("sources", "").strip(),
-            }
-            if topic["naziv"] != name:
-                TOPIC_CONTENT.pop(topic["naziv"], None)
-            flash("Tema je spremljena.", "success")
-            return redirect(url_for("admin_v54"))
-        return render_template("admin_topic_v54.html", mode="edit", topic=topic)
+            topic = conn.execute(
+                "SELECT id,naziv,aktivna FROM teme WHERE id=%s",
+                (topic_id,)
+            ).fetchone()
+
+            if not topic:
+                abort(404)
+
+            if request.method == "POST":
+                if not validate_csrf():
+                    abort(400)
+
+                name = request.form.get("title", "").strip()
+                if not name:
+                    flash("Naziv teme je obavezan.", "error")
+                    return redirect(url_for("admin_topic_edit_v54", topic_id=topic_id))
+
+                duplicate = conn.execute(
+                    "SELECT id FROM teme WHERE naziv=%s AND id<>%s",
+                    (name, topic_id)
+                ).fetchone()
+                if duplicate:
+                    flash("Druga tema već koristi taj naziv.", "error")
+                    return redirect(url_for("admin_topic_edit_v54", topic_id=topic_id))
+
+                old_name = topic["naziv"]
+                active = bool(request.form.get("active"))
+
+                conn.execute(
+                    "UPDATE teme SET naziv=%s, aktivna=%s WHERE id=%s",
+                    (name, active, topic_id)
+                )
+                conn.commit()
+
+                TOPIC_CONTENT[name] = {
+                    "intro": request.form.get("intro", "").strip(),
+                    "question": request.form.get("question", "").strip(),
+                    "goal": request.form.get("goal", "").strip(),
+                    "key_questions": request.form.get("key_questions", "").strip(),
+                    "rules": request.form.get("rules", "").strip(),
+                    "ai_criteria": request.form.get("ai_criteria", "").strip(),
+                    "sources": request.form.get("sources", "").strip(),
+                }
+
+                if old_name != name:
+                    TOPIC_CONTENT.pop(old_name, None)
+
+                app.logger.info(
+                    "Tema uređena: id=%s stari_naziv=%s novi_naziv=%s",
+                    topic_id, old_name, name
+                )
+                flash("Tema je spremljena.", "success")
+                return redirect(url_for("admin_v54"))
+
+            topic = topic_view(topic)
+            return render_template("admin_topic_v54.html", mode="edit", topic=topic)
+
     except Exception as exc:
-        app.logger.exception("Uređivanje teme nije uspjelo")
-        flash(f"Greška: {exc}", "error")
+        app.logger.exception("Uređivanje teme nije uspjelo: %s", exc)
+        flash(f"Greška pri uređivanju teme: {exc}", "error")
         return redirect(url_for("admin_v54"))
+
 
 @app.post("/admin/topic/<int:topic_id>/toggle")
 def admin_topic_toggle_v54(topic_id):
