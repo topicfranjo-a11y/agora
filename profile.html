@@ -1,1 +1,0 @@
-{% extends "base.html" %}{% block content %}<h1>Profil</h1><div class="card"><p>Trenutni pseudonim: <b>{{pseudonim}}</b></p><p>Broj mišljenja: {{broj}}</p><form method="post"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="pseudonim" value="{{pseudonim}}"><button class="btn">Spremi pseudonim</button></form></div>{% endblock %}
