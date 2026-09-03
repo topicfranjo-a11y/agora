@@ -1,6 +1,3 @@
-streamlit
-psycopg2-binary
-plotly
-google-genai
-openai
-streamlit-javascript
+Flask>=3.1,<4
+psycopg[binary]>=3.2,<4
+gunicorn>=23,<24

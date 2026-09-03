@@ -1,0 +1,9 @@
+body{margin:0;background:#071018;color:#eaf6ff;font-family:Arial,sans-serif}
+a{color:#72dcff;text-decoration:none}.wrap{max-width:1100px;margin:auto;padding:24px}
+nav{display:flex;gap:18px;align-items:center;padding:16px 0;border-bottom:1px solid #193242}
+.card{background:#0c1923;border:1px solid #1b394b;border-radius:14px;padding:20px;margin:16px 0}
+input,textarea,select{width:100%;box-sizing:border-box;background:#08131c;color:#eef;border:1px solid #2a5368;border-radius:8px;padding:11px;margin:6px 0 14px}
+textarea{min-height:120px}.btn{background:#0c9dcc;color:#fff;border:0;border-radius:8px;padding:11px 16px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.beacon{font-size:38px;display:inline-block;animation:spin 5s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.score{font-size:24px}.muted{color:#8ca5b5}.flash{padding:10px;border-radius:8px;margin:10px 0}

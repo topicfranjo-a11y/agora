@@ -1,0 +1,1 @@
+{% extends "base.html" %}{% block content %}<h1>Predviđanja</h1>{% for p in predvidjanja %}<div class="card"><h3>{{p.predvidjanje}}</h3><p>{{p.korisnik_pseudonim}} · {{p.tema_naziv}}</p><p>Rok: {{p.rok}} · Status: <b>{{p.status}}</b></p></div>{% else %}<p>Nema predviđanja.</p>{% endfor %}{% endblock %}
