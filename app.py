@@ -186,7 +186,7 @@ def health():
             missing = [x for x in required if x not in names]
         if missing:
             return {"status": "error", "database": "connected", "missing_tables": missing}, 500
-        return {"status": "ok", "database": "connected", "schema": "v5.4"}
+        return {"status": "ok", "database": "connected", "schema": "v5.6.1"}
     except Exception as exc:
         app.logger.exception("Health check failed")
         return {"status": "error", "database": "unavailable", "detail": str(exc)}, 500
@@ -240,7 +240,7 @@ def topic(topic_id):
         replies = {}
         for o in opinions:
             a = conn.execute("""
-                SELECT jasnoća, logika, dokazi, pretpostavke, kontraargumenti, provjerljivost, obrazlozenje
+                SELECT jasnoca, logika, dokazi, pretpostavke, kontraargumenti, provjerljivost, obrazlozenje
                 FROM svjetionik_analize
                 WHERE misljenje_id=%s ORDER BY id DESC LIMIT 1
             """, (o["id"],)).fetchone()
@@ -291,14 +291,14 @@ def save_opinion(topic_id):
 
         conn.execute("""
             INSERT INTO svjetionik_verzije_misljenja
-            (misljenje_id, verzija, content, razlog)
+            (misljenje_id, verzija, sadrzaj, razlog_promjene)
             VALUES (%s,1,%s,%s)
         """, (m["id"], Jsonb({"tvrdnja": claim}), "Početna verzija mišljenja"))
 
         conn.execute("""
             INSERT INTO svjetionik_analize
-            (misljenje_id, model, verzija, jasnoća, logika, dokazi,
-             pretpostavke, kontraargumenti, provjerljivost, obrazlozenje, raw_result)
+            (misljenje_id, model, verzija_modela, jasnoca, logika, dokazi,
+             pretpostavke, kontraargumenti, provjerljivost, obrazlozenje, sirovi_rezultat)
             VALUES (%s,'heuristika','v5.6',%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             m["id"], scores["jasnoća"], scores["logika"], scores["dokazi"],
@@ -308,7 +308,7 @@ def save_opinion(topic_id):
         ))
 
         conn.execute("""
-            INSERT INTO svjetionik_ai_dogadaji (misljenje_id, model, vrsta, input, output)
+            INSERT INTO svjetionik_ai_dogadaji (misljenje_id, model, vrsta, ulaz, izlaz)
             VALUES (%s,'heuristika','početna_analiza',%s,%s)
         """, (m["id"], Jsonb({"tema": t["naziv"], "tvrdnja": claim, "ai_criteria": tv.get("ai_criteria", "")}), Jsonb(scores)))
 
@@ -344,7 +344,7 @@ def opinion_detail(opinion_id):
         if not m:
             abort(404)
         analyses = conn.execute("""
-            SELECT model, verzija, jasnoća, logika, dokazi, pretpostavke,
+            SELECT model, verzija_modela, jasnoca, logika, dokazi, pretpostavke,
                    kontraargumenti, provjerljivost, obrazlozenje, stvoreno_at
             FROM svjetionik_analize WHERE misljenje_id=%s ORDER BY id DESC
         """, (opinion_id,)).fetchall()
