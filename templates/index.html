@@ -1,8 +1,66 @@
-{% extends "base.html" %}{% block title %}Civilizacijski svjetionik{% endblock %}{% block content %}<section class="hero"><div class="label">SVJETIONIK</div><h1>Misliš da si u pravu? Dokaži.</h1><p>Iznesi stav. Obrani ga. Dopusti drugima da ga napadnu. Vrijeme će pokazati što je preživjelo provjeru.</p></section><div class="grid">{% for t in topics %}<article class="card"><div class="label">TEMA {{ loop.index }}</div><h2>{{t.title}}</h2><p>{{t.intro}}</p>{% if t.question %}<blockquote>{{t.question}}</blockquote>{% endif %}<div class="meta">{{t.participants}} sudionika · {% if t.avg_score %}profil argumenta {{t.avg_score}}/10{% else %}još nema procjene{% endif %}</div><a class="button" href="{{url_for('topic',topic_id=t.id)}}">Otvori temu →</a></article>{% else %}<p>Nema aktivnih tema.</p>{% endfor %}</div><section class="card"><div class="label">AGORA ARHIVA</div><h2>Postojeći argumenti i komentari</h2>
-{% for a in legacy_args %}<article class="opinion"><div class="opinion-head"><strong>{{a.korisnik}}</strong><span>{{a.datum}}</span></div><div class="label">{{a.tema}}</div><p>{{a.tekst}}</p>
-<div class="scores"><span>Analitika {{a.ocjena_analitika if a.ocjena_analitika is not none else "—"}}</span><span>Empatija {{a.ocjena_empatija if a.ocjena_empatija is not none else "—"}}</span><span>Sinteza {{a.ocjena_sinteza if a.ocjena_sinteza is not none else "—"}}</span><span>Suglasje {{a.ocjena_suglasje if a.ocjena_suglasje is not none else "—"}}</span></div></article>
-{% else %}<p class="muted">Nema postojećih Agora argumenata.</p>{% endfor %}</section>
-<section class="card"><div class="label">SVJETIONIK</div><h2>Najnovija mišljenja</h2>
-{% for o in opinions %}<article class="opinion"><div class="opinion-head"><strong>{{o.korisnik_pseudonim}}</strong><span>{{o.stvoreno_at[:16].replace('T',' ')}}</span></div><div class="label">{{o.tema_naziv}}</div><h3>Tvrdnja</h3><p>{{o.tvrdnja}}</p><div class="meta">{{o.reply_count}} odgovora · {{o.prediction_count}} predviđanja</div><a class="button" href="{{url_for("opinion_detail", opinion_id=o.id)}}">Otvori mišljenje →</a></article>
-{% else %}<p class="muted">Još nema mišljenja Svjetionika.</p>{% endfor %}</section>
-<section class="card profile"><h2>Vaš anonimni profil</h2><p>Trenutni pseudonim: <strong>{{current_user.pseudonym}}</strong></p><form method="post" action="{{url_for('change_pseudonym')}}"><input type="hidden" name="csrf_token" value="{{csrf_token}}"><input name="pseudonym" value="{{current_user.pseudonym}}" maxlength="30"><button>Spremi pseudonim</button></form></section>{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}Početna · Civilizacijski svjetionik{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="label">CIVILIZACIJSKI SVJETIONIK</div>
+  <h1>Čim si se rodio, postao si prošlost.</h1>
+  <p>Ovaj trenutak je tvoj prezent. Iskoristi ga da humano oblikuješ budućnost.</p>
+  <p class="muted">Iznesi stav. Obrani ga. Dopusti drugima da ga napadnu. Vrijeme će pokazati tko je bio u pravu.</p>
+</section>
+
+<section class="section-block">
+  <div class="section-heading">
+    <div>
+      <div class="label">RASPRAVE</div>
+      <h2>Teme</h2>
+    </div>
+  </div>
+
+  <div class="grid">
+    {% for t in topics %}
+      <article class="card topic-card">
+        <span class="badge">{{ "AKTIVNA" if t.aktivna else "NEAKTIVNA" }}</span>
+        <h3>{{ t.naziv }}</h3>
+
+        {% if t.intro %}
+          <p class="topic-intro">{{ t.intro }}</p>
+        {% endif %}
+
+        {% if t.question %}
+          <p class="muted topic-question"><strong>Pitanje:</strong> {{ t.question }}</p>
+        {% endif %}
+
+        <div class="actions">
+          <a class="btn" href="{{ url_for('topic', topic_id=t.id) }}">Otvori temu</a>
+        </div>
+      </article>
+    {% else %}
+      <p class="muted">Trenutno nema aktivnih tema.</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% if opinions %}
+<section class="section-block">
+  <div class="section-heading">
+    <div>
+      <div class="label">SVJETIONIK</div>
+      <h2>Najnovija mišljenja</h2>
+    </div>
+  </div>
+
+  <div class="grid">
+    {% for m in opinions %}
+      <article class="card">
+        <span class="badge">{{ m.tema_naziv }}</span>
+        <h3>{{ m.tvrdnja }}</h3>
+        <p class="muted">{{ m.korisnik_pseudonim }} · {{ m.stvoreno_at }}</p>
+        <a class="btn secondary" href="{{ url_for('opinion_detail', opinion_id=m.id) }}">Otvori mišljenje</a>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
