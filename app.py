@@ -489,8 +489,8 @@ def admin_v54():
                 "replies": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_odgovori").fetchone()["n"],
                 "predictions": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_predvidjanja").fetchone()["n"],
                 "open_predictions": conn.execute(
-                    "SELECT COUNT(*) FROM svjetionik_predvidjanja WHERE status='otvoreno'"
-                ).fetchone()[0],
+                    "SELECT COUNT(*) AS n FROM svjetionik_predvidjanja WHERE status='otvoreno'"
+                ).fetchone()["n"],
                 "participants": conn.execute("SELECT COUNT(*) AS n FROM korisnici").fetchone()["n"],
                 "analyses": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_analize").fetchone()["n"],
             }
