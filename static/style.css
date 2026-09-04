@@ -78,3 +78,23 @@
 .reply small { opacity:.6; }
 .intro-note { border-left:3px solid rgba(54,209,220,.65); }
 @media (max-width:700px){ .score-row{grid-template-columns:110px 1fr 42px;font-size:.82rem}.score-summary{align-items:flex-start;flex-direction:column} }
+
+/* V5.6.3 — čitljivost mišljenja i mobilni prikaz */
+.opinion-detail h1{font-size:clamp(22px,3vw,36px);line-height:1.25;overflow-wrap:anywhere}
+.opinion-detail{padding:22px}
+.opinion-detail .meta{font-size:.9rem}
+@media(max-width:700px){
+  body{font-size:15px;line-height:1.5}
+  main{margin:20px auto;padding:0 12px}
+  .hero,.card,.opinion{padding:18px;margin-bottom:16px;border-radius:14px}
+  .hero h1{font-size:clamp(25px,8vw,36px)}
+  .opinion-detail h1{font-size:clamp(19px,5.5vw,28px);line-height:1.3}
+  .opinion-detail{padding:16px}
+  .opinion p{font-size:.98rem}
+  .reply p{font-size:.95rem}
+  .score-row{grid-template-columns:92px minmax(0,1fr) 38px;font-size:.76rem;gap:7px}
+  .score-track{height:8px}
+  .score-summary strong{font-size:.9rem}
+  textarea{font-size:16px!important}
+  .button,button{min-height:44px;padding:9px 13px}
+}
