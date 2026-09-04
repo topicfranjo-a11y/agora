@@ -2,7 +2,7 @@
 {% block title %}Stav · Civilizacijski svjetionik{% endblock %}
 {% block content %}
 <a class="back" href="{{ url_for('topic',topic_id=opinion.tema_id) }}">← Povratak na temu</a>
-<section class="hero"><div class="label">{{ opinion.tema_naziv }}</div><h1>{{ opinion.tvrdnja }}</h1><p class="meta">{{ opinion.korisnik_pseudonim }} · {{ opinion.stvoreno_at }}</p></section>
+<section class="hero opinion-detail"><div class="label">{{ opinion.tema_naziv }}</div><h1>{{ opinion.tvrdnja }}</h1><p class="meta">{{ opinion.korisnik_pseudonim }} · {{ opinion.stvoreno_at }}</p></section>
 {% for a in analyses %}
 <section class="card">
   <div class="label">POČETNA AI ANALIZA · {{ a.model }}</div>
