@@ -391,8 +391,10 @@ def change_pseudonym():
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
-    if session.get(ADMIN_SESSION_KEY):
-        return redirect(url_for("admin"))
+    # Namjerno uvijek traži ponovnu lozinku pri ulasku u Admin.
+    # Time se ne koristi prethodna administratorska sesija kao prečac.
+    if request.method == "GET":
+        session.pop(ADMIN_SESSION_KEY, None)
     if request.method == "POST":
         if not validate_csrf():
             abort(400)
