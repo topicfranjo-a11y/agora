@@ -99,51 +99,39 @@
   .button,button{min-height:44px;padding:9px 13px}
 }
 
-/* V5.6.4 — rasprava: uredan unos kritike i mobilni prikaz */
+/* V5.6.5 — rasprava: unos kritike uvijek puni red */
 .opinion form{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
+  display:flex;
+  flex-direction:column;
   gap:10px;
-  align-items:end;
+  width:100%;
   margin-top:14px;
 }
 .opinion form textarea{
+  display:block;
   width:100%;
-  min-height:72px;
+  min-width:0;
+  min-height:96px;
   margin:0;
+  padding:12px 14px;
   box-sizing:border-box;
   resize:vertical;
   background:#07131b;
   border:1px solid var(--line);
   border-radius:10px;
   color:var(--text);
-  padding:11px 13px;
-  font:inherit;
-  line-height:1.45;
+  font:16px/1.45 inherit;
 }
 .opinion form textarea:focus{
   outline:2px solid rgba(0,217,255,.22);
   border-color:var(--accent);
 }
 .opinion form button{
+  width:100%;
+  min-height:44px;
   white-space:nowrap;
 }
 @media(max-width:700px){
-  .opinion form{
-    grid-template-columns:1fr;
-    align-items:stretch;
-    gap:9px;
-  }
-  .opinion form textarea{
-    min-height:82px;
-    font-size:16px!important;
-  }
-  .opinion form button{
-    width:100%;
-  }
-  .discussion-head{
-    gap:10px;
-    align-items:flex-start;
-    flex-direction:column;
-  }
+  .opinion form textarea{min-height:100px;font-size:16px;}
+  .opinion form button{min-height:46px;}
 }
