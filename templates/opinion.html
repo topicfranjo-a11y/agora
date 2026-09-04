@@ -1,56 +1,21 @@
-
 {% extends "base.html" %}
-{% block title %}Mišljenje · Civilizacijski svjetionik{% endblock %}
+{% block title %}Stav · Civilizacijski svjetionik{% endblock %}
 {% block content %}
-<section class="hero">
-  <div class="label">{{ opinion.tema_naziv }}</div>
-  <h1>{{ opinion.tvrdnja }}</h1>
-  <p class="meta">{{ opinion.korisnik_pseudonim }} · {{ opinion.stvoreno_at }}</p>
-</section>
-
-<div class="grid">
-  <article class="card"><div class="label">ARGUMENT</div><p>{{ opinion.argument or "—" }}</p></article>
-  <article class="card"><div class="label">DOKAZ</div><p>{{ opinion.dokaz or "—" }}</p></article>
-  <article class="card"><div class="label">PRETPOSTAVKE</div><p>{{ opinion.pretpostavke or "—" }}</p></article>
-  <article class="card"><div class="label">KONTRAARGUMENT</div><p>{{ opinion.kontraargument or "—" }}</p></article>
-  <article class="card"><div class="label">ZAKLJUČAK</div><p>{{ opinion.zakljucak or "—" }}</p></article>
-</div>
-
+<a class="back" href="{{ url_for('topic',topic_id=opinion.tema_id) }}">← Povratak na temu</a>
+<section class="hero"><div class="label">{{ opinion.tema_naziv }}</div><h1>{{ opinion.tvrdnja }}</h1><p class="meta">{{ opinion.korisnik_pseudonim }} · {{ opinion.stvoreno_at }}</p></section>
 {% for a in analyses %}
 <section class="card">
-  <div class="label">ANALIZA · {{ a.model }}</div>
-  <div class="scores">
-    <span>Jasnoća {{ a.jasnoća }}/10</span>
-    <span>Logika {{ a.logika }}/10</span>
-    <span>Dokazi {{ a.dokazi }}/10</span>
-    <span>Pretpostavke {{ a.pretpostavke }}/10</span>
-    <span>Kontraargumenti {{ a.kontraargumenti }}/10</span>
-    <span>Provjerljivost {{ a.provjerljivost }}/10</span>
+  <div class="label">POČETNA AI ANALIZA · {{ a.model }}</div>
+  <div class="score-bars">
+    {% for label,key in [('Jasnoća','jasnoća'),('Logika','logika'),('Utemeljenost','dokazi'),('Provjerljivost','provjerljivost'),('Pretpostavke','pretpostavke'),('Otpornost','kontraargumenti')] %}
+    <div class="score-row"><span>{{ label }}</span><div class="score-track"><div class="score-fill" style="width: {{ (a[key] or 0) * 10 }}%"></div></div><b>{{ a[key] }}/10</b></div>
+    {% endfor %}
   </div>
   <p>{{ a.obrazlozenje }}</p>
+  <p class="muted">Ova procjena je početna mjerna točka. Konačnu vrijednost otpornosti stvarat će ljudska rasprava.</p>
 </section>
 {% endfor %}
-
-{% for p in predictions %}
-<section class="card">
-  <div class="label">PREDVIĐANJE</div>
-  <h3>{{ p.predvidjanje }}</h3>
-  <p>Rok: {{ p.rok }} · Status: {{ p.status }}</p>
-  {% if p.ishod %}<p><b>Ishod:</b> {{ p.ishod }}</p>{% endif %}
-</section>
-{% endfor %}
-
-<section class="card">
-  <div class="label">PROTUARGUMENTI</div>
-  {% for r in replies %}
-    <article class="opinion"><strong>{{ r.korisnik_pseudonim }}</strong><p>{{ r.tekst }}</p><small>{{ r.stvoreno_at }}</small></article>
-  {% else %}
-    <p class="muted">Još nema odgovora.</p>
-  {% endfor %}
-  <form method="post" action="{{ url_for('save_reply', opinion_id=opinion.id) }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <textarea name="text" required placeholder="Iznesi ozbiljan protuargument..."></textarea>
-    <button>Objavi odgovor</button>
-  </form>
-</section>
+<section class="card"><div class="label">RASPRAVA</div><h2>Stav je otvoren kritici</h2>
+{% for r in replies %}<article class="reply"><strong>{{ r.korisnik_pseudonim }}</strong><p>{{ r.tekst }}</p><small>{{ r.stvoreno_at }}</small></article>{% else %}<p class="muted">Još nema odgovora.</p>{% endfor %}
+<form method="post" action="{{ url_for('save_reply', opinion_id=opinion.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><textarea name="text" required placeholder="Iznesi ozbiljan protuargument…"></textarea><button>Objavi kritiku</button></form></section>
 {% endblock %}
