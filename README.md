@@ -1,25 +1,10 @@
-# Civilizacijski svjetionik V5.3
+# Civilizacijski svjetionik V5.6.1
 
-V5.3 je integracija V4.1.1 funkcionalnosti s postojećom Neon bazom `agora-baza`.
+Ispravak V5.6 prema stvarnoj Neon V5.1 shemi.
 
-## Glavno
-- postojeće Agora teme, argumenti i korisnici ostaju netaknuti
-- V4.1.1 urednički sadržaj tema je sačuvan u aplikaciji
-- nova mišljenja koriste `svjetionik_*` tablice
-- predviđanja se zapisuju i kasnije provjeravaju
-- početna heuristička analiza jasno je označena kao privremena
-- nema SQLite baze
-
-## Render
-Build: `pip install -r requirements.txt`
-Start: `gunicorn app:app`
-Health: `/health`
-
-Potrebne varijable:
-- `DATABASE_URL`
-- `SECRET_KEY`
-- `ADMIN_PASSWORD`
-
-
-## V5.3.2
-Popravljen globalni korisnički kontekst koji je mogao rušiti `/` dok `/health` radi; usklađeni su V5 nazivi polja u topic/predictions predlošcima; `/health` označava schema v5.3.2.
+- Korisnik pri unosu predaje samo tvrdnju.
+- Početna AI analiza je analitička procjena, ne sudionik rasprave.
+- Stav ostaje otvoren ljudskoj kritici.
+- Ispravljeni su nazivi PostgreSQL stupaca prema postojećoj Neon shemi: sadrzaj, razlog_promjene, verzija_modela, jasnoca, sirovi_rezultat, ulaz, izlaz.
+- Neon shema se ne mijenja.
+- Admin je zadržan na V5.4.4 osnovi.
