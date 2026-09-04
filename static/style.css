@@ -65,3 +65,16 @@
   .topic-actions,
   .topic-active{grid-column:auto}
 }
+
+/* V5.6 — claim-first interface and visual analytical bars */
+.score-bars { display:grid; gap:10px; margin:14px 0; }
+.score-row { display:grid; grid-template-columns:150px 1fr 48px; align-items:center; gap:10px; font-size:.92rem; }
+.score-track { height:10px; border-radius:999px; background:rgba(255,255,255,.10); overflow:hidden; }
+.score-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, #36d1dc, #7b61ff); }
+.score-summary { display:flex; justify-content:space-between; gap:16px; align-items:center; padding-top:8px; border-top:1px solid rgba(255,255,255,.08); }
+.score-summary span { color:var(--muted,#8d96a8); font-size:.85rem; }
+.discussion-head { display:flex; justify-content:space-between; margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,.08); }
+.reply { margin:12px 0; padding:12px 14px; border-left:3px solid rgba(54,209,220,.5); background:rgba(255,255,255,.025); border-radius:8px; }
+.reply small { opacity:.6; }
+.intro-note { border-left:3px solid rgba(54,209,220,.65); }
+@media (max-width:700px){ .score-row{grid-template-columns:110px 1fr 42px;font-size:.82rem}.score-summary{align-items:flex-start;flex-direction:column} }
