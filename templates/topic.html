@@ -20,7 +20,7 @@
   <p class="muted">Svaki stav ostaje otvoren ljudskoj kritici. Početna AI analiza služi samo kao analitička mjerna točka.</p>
   {% for o in opinions %}
   <article class="opinion">
-    <div class="opinion-head"><strong>{{ o.korisnik_pseudonim }}</strong><span>{{ o.stvoreno_at[:16].replace('T',' ') if o.stvoreno_at else '' }}</span></div>
+    <div class="opinion-head"><strong>{{ o.korisnik_pseudonim }}</strong><span>{{ o.stvoreno_at.strftime('%d.%m.%Y. %H:%M') if o.stvoreno_at else '' }}</span></div>
     <h3>Tvrdnja</h3><p>{{ o.tvrdnja }}</p>
     {% if o.analysis %}
     <div class="label">POČETNA AI ANALIZA</div>
@@ -32,7 +32,7 @@
     <div class="score-summary"><strong>Početna analitička ocjena: {{ o.analysis.pocetna_ocjena }}/10</strong><span>Ne odlučuje o istinitosti stava.</span></div>
     {% endif %}
     <div class="discussion-head"><strong>KRITIKA SUDIONIKA</strong><span>{{ o.reply_count }} odgovora</span></div>
-    {% for r in replies.get(o.id, []) %}<div class="reply"><strong>{{ r.korisnik_pseudonim }}</strong><p>{{ r.tekst }}</p><small>{{ r.stvoreno_at }}</small></div>{% else %}<p class="muted">Još nema kritika. Budi prvi koji će ozbiljno osporiti ili podržati ovaj stav.</p>{% endfor %}
+    {% for r in replies.get(o.id, []) %}<div class="reply"><strong>{{ r.korisnik_pseudonim }}</strong><p>{{ r.tekst }}</p><small>{{ r.stvoreno_at.strftime('%d.%m.%Y. %H:%M') if r.stvoreno_at else '' }}</small></div>{% else %}<p class="muted">Još nema kritika. Budi prvi koji će ozbiljno osporiti ili podržati ovaj stav.</p>{% endfor %}
     <form method="post" action="{{ url_for('save_reply', opinion_id=o.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><textarea name="text" required placeholder="Iznesi ozbiljan protuargument ili odgovor…"></textarea><button>Objavi kritiku</button></form>
   </article>
   {% else %}<p class="muted">Još nema stavova. Budi prvi.</p>{% endfor %}
