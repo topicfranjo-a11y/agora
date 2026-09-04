@@ -25,7 +25,7 @@
     {% if o.analysis %}
     <div class="label">POČETNA AI ANALIZA</div>
     <div class="score-bars">
-      {% for label,key in [('Jasnoća','jasnoća'),('Logika','logika'),('Utemeljenost','dokazi'),('Provjerljivost','provjerljivost'),('Pretpostavke','pretpostavke'),('Otpornost','otpornost')] %}
+      {% for label,key in [('Jasnoća','jasnoca'),('Logika','logika'),('Utemeljenost','dokazi'),('Provjerljivost','provjerljivost'),('Pretpostavke','pretpostavke'),('Otpornost','otpornost')] %}
       <div class="score-row"><span>{{ label }}</span><div class="score-track"><div class="score-fill" style="width: {{ (o.analysis[key] or 0) * 10 }}%"></div></div><b>{{ o.analysis[key] }}/10</b></div>
       {% endfor %}
     </div>
