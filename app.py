@@ -117,20 +117,24 @@ def topic_view(row):
     return d
 
 def analyze(text, topic=None):
+    """Initial analytical profile of the claim.
+    This is not a truth verdict and not a dialogue with AI.
+    It is a starting measurement before human criticism begins.
+    """
     lower = text.lower()
     words = len(text.split())
     evidence_terms = ["izvor", "podat", "studij", "istraživ", "dokaz", "statistik", "prema", "mjeren"]
-    counter_terms = ["ali", "međutim", "s druge strane", "suprotno", "prigovor", "kritika"]
-    logic_terms = ["jer", "zato", "stoga", "dakle", "ako", "onda", "uzrok", "posljedica"]
+    counter_terms = ["ali", "međutim", "s druge strane", "suprotno", "prigovor", "kritika", "ovisno"]
+    logic_terms = ["jer", "zato", "stoga", "dakle", "ako", "onda", "uzrok", "posljedica", "zbog"]
     prediction_terms = ["predviđ", "očekujem", "do 20", "u budućnosti", "za godinu", "za 5 godina"]
 
     criteria = ((topic or {}).get("ai_criteria") or "").lower() if topic else ""
-    clarity = min(10, max(2, 3 + words // 20 + (1 if "." in text else 0)))
-    logic = min(10, 4 + min(4, sum(x in lower for x in logic_terms)))
+    clarity = min(10, max(2, 4 + words // 18 + int(any(ch in text for ch in ".,;:"))))
+    logic = min(10, 4 + min(5, sum(x in lower for x in logic_terms)))
     evidence = min(10, 3 + 3 * int(any(x in lower for x in evidence_terms)) + int("http" in lower))
-    assumptions = min(10, 4 + int("pretpostav" in lower) + int("ako" in lower))
-    counter = min(10, 3 + 3 * int(any(x in lower for x in counter_terms)))
-    verifiability = min(10, 3 + 4 * int(any(x in lower for x in prediction_terms)) + int("datum" in lower or "%" in lower))
+    assumptions = min(10, 4 + int("ako" in lower) + int("pretpostav" in lower) + int("vjerojat" in lower))
+    counter = min(10, 3 + 4 * int(any(x in lower for x in counter_terms)))
+    verifiability = min(10, 3 + 4 * int(any(x in lower for x in prediction_terms)) + int("datum" in lower or "%" in lower or any(ch.isdigit() for ch in text)))
 
     if criteria:
         if any(k in criteria for k in ["izvor", "dokaz"]):
@@ -146,6 +150,18 @@ def analyze(text, topic=None):
         "kontraargumenti": counter,
         "provjerljivost": verifiability,
     }
+
+def analysis_average(scores):
+    vals = [scores[k] for k in ("jasnoća", "logika", "dokazi", "pretpostavke", "kontraargumenti", "provjerljivost")]
+    return round(sum(vals) / len(vals), 1)
+
+def add_analysis_view(row):
+    if not row:
+        return row
+    d = dict(row)
+    d["otpornost"] = d.get("kontraargumenti")
+    d["pocetna_ocjena"] = round(sum(d.get(k, 0) for k in ("jasnoća", "logika", "dokazi", "pretpostavke", "kontraargumenti", "provjerljivost")) / 6, 1)
+    return d
 
 def admin_guard():
     if not session.get("admin_logged"):
@@ -180,26 +196,15 @@ def index():
     with db() as conn:
         topics_raw = conn.execute("""
             SELECT t.id, t.naziv, COALESCE(t.aktivna, TRUE) AS aktivna,
-                   (SELECT COUNT(*) FROM svjetionik_misljenja m WHERE m.tema_id=t.id) AS opinion_count,
-                   (SELECT COUNT(*) FROM argumenti a WHERE a.tema=t.naziv) AS agora_count
+                   (SELECT COUNT(*) FROM svjetionik_misljenja m WHERE m.tema_id=t.id) AS opinion_count
             FROM teme t
             WHERE COALESCE(t.aktivna, TRUE)=TRUE
             ORDER BY t.id
         """).fetchall()
 
-        legacy_args = conn.execute("""
-            SELECT id, korisnik, tema, tekst, datum, ton,
-                   ocjena_analitika, ocjena_empatija, ocjena_sinteza, ocjena_suglasje
-            FROM argumenti
-            ORDER BY id DESC
-            LIMIT 20
-        """).fetchall()
-
-        # New Svjetionik opinions, newest first.
         opinions = conn.execute("""
             SELECT m.id, m.tema_naziv, m.tvrdnja, m.korisnik_pseudonim, m.stvoreno_at,
-                   (SELECT COUNT(*) FROM svjetionik_odgovori r WHERE r.misljenje_id=m.id) AS reply_count,
-                   (SELECT COUNT(*) FROM svjetionik_predvidjanja p WHERE p.misljenje_id=m.id) AS prediction_count
+                   (SELECT COUNT(*) FROM svjetionik_odgovori r WHERE r.misljenje_id=m.id) AS reply_count
             FROM svjetionik_misljenja m
             ORDER BY m.id DESC
             LIMIT 12
@@ -209,10 +214,10 @@ def index():
     for x in topics_raw:
         tv = topic_view(x)
         tv["title"] = tv["naziv"]
-        tv["participants"] = tv.get("opinion_count", 0) + tv.get("agora_count", 0)
+        tv["participants"] = tv.get("opinion_count", 0)
         tv["avg_score"] = None
         topics.append(tv)
-    return render_template("index.html", topics=topics, legacy_args=legacy_args, opinions=opinions)
+    return render_template("index.html", topics=topics, opinions=opinions)
 
 @app.get("/topic/<int:topic_id>")
 def topic(topic_id):
@@ -224,38 +229,22 @@ def topic(topic_id):
         if not t or not t["aktivna"]:
             abort(404)
 
-        args = conn.execute("""
-            SELECT id, korisnik, tema, tekst, datum, ton,
-                   ocjena_analitika, ocjena_empatija, ocjena_sinteza, ocjena_suglasje
-            FROM argumenti WHERE tema=%s ORDER BY id DESC
-        """, (t["naziv"],)).fetchall()
-
         opinions = conn.execute("""
             SELECT m.*,
-                   m.korisnik_pseudonim AS pseudonym,
-                   m.stvoreno_at AS created_at,
-                   m.tvrdnja AS claim,
-                   m.dokaz AS evidence_text,
-                   m.pretpostavke AS assumptions_text,
-                   m.kontraargument AS counterargument_text,
-                   m.zakljucak AS conclusion,
-                   (SELECT COUNT(*) FROM svjetionik_odgovori r WHERE r.misljenje_id=m.id) AS reply_count,
-                   (SELECT COUNT(*) FROM svjetionik_predvidjanja p WHERE p.misljenje_id=m.id) AS prediction_count
+                   (SELECT COUNT(*) FROM svjetionik_odgovori r WHERE r.misljenje_id=m.id) AS reply_count
             FROM svjetionik_misljenja m
             WHERE m.tema_id=%s
             ORDER BY m.id DESC
         """, (topic_id,)).fetchall()
 
+        replies = {}
         for o in opinions:
             a = conn.execute("""
-                SELECT jasnoća, logika, dokazi, pretpostavke, kontraargumenti, provjerljivost
+                SELECT jasnoća, logika, dokazi, pretpostavke, kontraargumenti, provjerljivost, obrazlozenje
                 FROM svjetionik_analize
                 WHERE misljenje_id=%s ORDER BY id DESC LIMIT 1
             """, (o["id"],)).fetchone()
-            o["analysis"] = a
-
-        replies = {}
-        for o in opinions:
+            o["analysis"] = add_analysis_view(a)
             replies[o["id"]] = conn.execute("""
                 SELECT korisnik_pseudonim, tekst, stvoreno_at
                 FROM svjetionik_odgovori
@@ -263,7 +252,7 @@ def topic(topic_id):
             """, (o["id"],)).fetchall()
 
     tv = topic_view(t)
-    return render_template("topic.html", topic=tv, opinions=opinions, legacy_args=args, replies=replies)
+    return render_template("topic.html", topic=tv, opinions=opinions, replies=replies)
 
 @app.get("/topic/<int:topic_id>/write")
 def write(topic_id):
@@ -278,102 +267,53 @@ def save_opinion(topic_id):
     if not validate_csrf():
         abort(400)
 
-    user = current_user(create=True)
-    fields = {
-        k: request.form.get(k, "").strip()
-        for k in ["claim", "argument", "evidence_text", "assumptions_text", "counterargument_text", "conclusion"]
-    }
-    combined = "\n\n".join(v for v in fields.values() if v)
-    if len(combined) < 20:
-        flash("Argument mora imati barem 20 znakova.", "error")
+    claim = request.form.get("claim", "").strip()
+    if len(claim) < 20:
+        flash("Tvrdnja mora imati barem 20 znakova.", "error")
         return redirect(url_for("write", topic_id=topic_id))
 
-    prediction = request.form.get("prediction_text", "").strip()
-    target = request.form.get("target_date", "").strip()
-
-    if prediction or target:
-        if not prediction or not target:
-            flash("Predviđanje i datum provjere moraju biti uneseni zajedno.", "error")
-            return redirect(url_for("write", topic_id=topic_id))
-        try:
-            target_date = date.fromisoformat(target)
-            if target_date <= date.today():
-                flash("Datum provjere mora biti u budućnosti.", "error")
-                return redirect(url_for("write", topic_id=topic_id))
-        except ValueError:
-            flash("Datum provjere nije valjan.", "error")
-            return redirect(url_for("write", topic_id=topic_id))
-
+    user = current_user(create=True)
     with db() as conn:
         t = conn.execute("SELECT * FROM teme WHERE id=%s AND COALESCE(aktivna,TRUE)=TRUE", (topic_id,)).fetchone()
         if not t:
             abort(404)
         tv = topic_view(t)
-        scores = analyze(combined, tv)
+        scores = analyze(claim, tv)
 
         m = conn.execute("""
             INSERT INTO svjetionik_misljenja
             (korisnik_ip, korisnik_pseudonim, tema_id, tema_naziv,
              tvrdnja, argument, dokaz, pretpostavke, kontraargument,
              zakljucak, predvidjanje, datum_predvidjanja)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
             RETURNING id
-        """, (
-            user["ip_adresa"], user["pseudonim"], topic_id, t["naziv"],
-            fields["claim"], fields["argument"], fields["evidence_text"],
-            fields["assumptions_text"], fields["counterargument_text"],
-            fields["conclusion"], prediction, target or None
-        )).fetchone()
+        """, (user["ip_adresa"], user["pseudonim"], topic_id, t["naziv"], claim)).fetchone()
 
         conn.execute("""
             INSERT INTO svjetionik_verzije_misljenja
             (misljenje_id, verzija, content, razlog)
             VALUES (%s,1,%s,%s)
-        """, (
-            m["id"],
-            Jsonb({
-                "tvrdnja": fields["claim"],
-                "argument": fields["argument"],
-                "dokaz": fields["evidence_text"],
-                "pretpostavke": fields["assumptions_text"],
-                "kontraargument": fields["counterargument_text"],
-                "zakljucak": fields["conclusion"],
-                "predvidjanje": prediction,
-                "datum_predvidjanja": target or None,
-            }),
-            "Početna verzija mišljenja"
-        ))
+        """, (m["id"], Jsonb({"tvrdnja": claim}), "Početna verzija mišljenja"))
 
         conn.execute("""
             INSERT INTO svjetionik_analize
             (misljenje_id, model, verzija, jasnoća, logika, dokazi,
              pretpostavke, kontraargumenti, provjerljivost, obrazlozenje, raw_result)
-            VALUES (%s,'heuristika','v5.3',%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,'heuristika','v5.6',%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             m["id"], scores["jasnoća"], scores["logika"], scores["dokazi"],
             scores["pretpostavke"], scores["kontraargumenti"], scores["provjerljivost"],
-            "Privremena heuristička analiza. Ne utvrđuje istinu; služi kao početna struktura prije pravog AI analizatora.",
+            "Početna analitička procjena tvrdnje. Ne utvrđuje istinu i ne sudjeluje u raspravi; služi kao početna mjerna točka prije ljudske kritike.",
             Jsonb(scores)
         ))
 
         conn.execute("""
             INSERT INTO svjetionik_ai_dogadaji (misljenje_id, model, vrsta, input, output)
-            VALUES (%s,'heuristika','analiza',%s,%s)
-        """, (
-            m["id"],
-            Jsonb({"vrsta": "početna", "tekst": combined}),
-            Jsonb(scores)
-        ))
+            VALUES (%s,'heuristika','početna_analiza',%s,%s)
+        """, (m["id"], Jsonb({"tema": t["naziv"], "tvrdnja": claim, "ai_criteria": tv.get("ai_criteria", "")}), Jsonb(scores)))
 
-        if prediction:
-            conn.execute("""
-                INSERT INTO svjetionik_predvidjanja
-                (misljenje_id, predvidjanje, rok)
-                VALUES (%s,%s,%s)
-            """, (m["id"], prediction, target))
-
-    flash("Mišljenje je spremljeno u arhivu.", "success")
-    return redirect(url_for("topic", topic_id=topic_id))
+    flash("Stav je spremljen i otvoren ljudskoj kritici.", "success")
+    return redirect(url_for("opinion_detail", opinion_id=m["id"]))
 
 @app.post("/opinion/<int:opinion_id>/reply")
 def save_reply(opinion_id):
