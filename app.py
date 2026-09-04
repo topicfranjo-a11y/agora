@@ -12,6 +12,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+ADMIN_SESSION_KEY = "admin_authenticated_v563"
 
 # Rich content preserved from V4.1.1. The actual topic list still comes from Neon/Agora.
 TOPIC_CONTENT = {
@@ -100,7 +101,7 @@ def globals_for_templates():
     # the anonymous-profile table is temporarily unavailable.
     return {
         "current_user": {"pseudonym": "Gost", "pseudonim": "Gost"},
-        "admin_logged": bool(session.get("admin_logged", False)),
+        "admin_logged": bool(session.get(ADMIN_SESSION_KEY, False)),
         "csrf_token": csrf_token(),
     }
 
@@ -164,7 +165,7 @@ def add_analysis_view(row):
     return d
 
 def admin_guard():
-    if not session.get("admin_logged"):
+    if not session.get(ADMIN_SESSION_KEY):
         return redirect(url_for("admin_login"))
     return None
 
@@ -390,20 +391,25 @@ def change_pseudonym():
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
+    if session.get(ADMIN_SESSION_KEY):
+        return redirect(url_for("admin"))
     if request.method == "POST":
         if not validate_csrf():
             abort(400)
         if ADMIN_PASSWORD and secrets.compare_digest(request.form.get("password", ""), ADMIN_PASSWORD):
-            session["admin_logged"] = True
+            session[ADMIN_SESSION_KEY] = True
             return redirect(url_for("admin"))
-        flash("Pogrešna administratorska lozinka.", "error")
+        if not ADMIN_PASSWORD:
+            flash("Administratorska lozinka nije postavljena u Renderu (ADMIN_PASSWORD).", "error")
+        else:
+            flash("Pogrešna administratorska lozinka.", "error")
     return render_template("admin_login.html")
 
 @app.post("/admin/logout")
 def admin_logout():
     if not validate_csrf():
         abort(400)
-    session["admin_logged"] = False
+    session[ADMIN_SESSION_KEY] = False
     return redirect(url_for("index"))
 
 
@@ -412,7 +418,7 @@ def admin_logout():
 # =========================
 
 def admin_required_v54():
-    return bool(session.get("admin_logged", False))
+    return bool(session.get(ADMIN_SESSION_KEY, False))
 
 def admin_redirect_v54():
     return redirect(url_for("admin_login"))
