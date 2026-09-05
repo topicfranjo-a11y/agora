@@ -142,3 +142,11 @@
 .critic-form textarea { width:100%; min-height:110px; box-sizing:border-box; resize:vertical; }
 .critic-form button { width:100%; min-height:46px; }
 @media (min-width: 700px) { .critic-form button { width:auto; align-self:flex-start; min-width:180px; } }
+
+
+/* V5.6.9 — javni eksperiment */
+.beta-banner{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;margin-bottom:22px;padding:13px 16px;border:1px solid rgba(0,217,255,.35);border-radius:14px;background:rgba(0,217,255,.055)}
+.beta-banner strong{color:var(--accent);font-size:12px;letter-spacing:.08em;white-space:nowrap}
+.beta-banner span{color:var(--muted);font-size:14px}
+.beta-banner a{white-space:nowrap;font-weight:700}
+@media(max-width:700px){.beta-banner{grid-template-columns:1fr;gap:7px}.beta-banner a{white-space:normal}}
