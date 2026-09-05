@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}O eksperimentu · Civilizacijski svjetionik{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('index') }}">← Teme</a>
+<section class="hero">
+  <div class="label">JAVNI EKSPERIMENT</div>
+  <h1>Može li se kvaliteta javnog mišljenja učiniti vidljivom?</h1>
+  <p>Ova verzija Civilizacijskog svjetionika nije zamišljena kao gotova društvena mreža. Puštamo je u mali javni test kako bismo vidjeli što se događa kada stvarni ljudi iznesu tvrdnju, dopuste drugima da je kritiziraju i ostave trag o razvoju mišljenja.</p>
+</section>
+
+<section class="grid two">
+  <article class="card"><div class="label">1 · TVRDNJA</div><h2>Što čovjek stvarno tvrdi?</h2><p>Sudionik zasad unosi samo svoju tvrdnju. Sustav pokušava početno procijeniti njezinu jasnoću, logiku, utemeljenost, pretpostavke i provjerljivost.</p></article>
+  <article class="card"><div class="label">2 · KRITIKA</div><h2>Može li stav preživjeti napad?</h2><p>Drugi sudionici mogu iznijeti protuargument ili odgovor. Cilj nije pobijediti drugoga nego izložiti tvrdnju ozbiljnoj kritici.</p></article>
+  <article class="card"><div class="label">3 · VRIJEME</div><h2>Što će pokazati stvarnost?</h2><p>Dugoročno želimo usporediti tvrdnje i predviđanja sa stvarnim ishodima. Ova funkcija još nije dovršena i upravo je jedan od razloga javnog testa.</p></article>
+  <article class="card"><div class="label">4 · UČENJE</div><h2>Što sada promatramo?</h2><p>Promatramo kako ljudi pišu, kritiziraju, odgovaraju, mijenjaju mišljenje i gdje sustav treba poboljšati pravila ili sučelje.</p></article>
+</section>
+
+<section class="card intro-note">
+  <div class="label">VAŽNO</div>
+  <p><strong>AI nije sudac.</strong> Početna analiza je samo mjerna točka. Ne odlučuje tko je u pravu i ne zamjenjuje ljudsku raspravu.</p>
+  <p><strong>Ne moraš se složiti.</strong> Ali ako kritiziraš nečiji stav, pokušaj napasti tvrdnju i obrazloženje, a ne osobu.</p>
+  <p class="muted">U ovoj testnoj verziji sustav može sadržavati nedovršene funkcije i pogreške. Nemoj unositi osjetljive osobne podatke.</p>
+</section>
+{% endblock %}
