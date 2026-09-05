@@ -1,10 +1,16 @@
-# Civilizacijski svjetionik V5.6.1
+# Civilizacijski svjetionik — V5.6.10
 
-Ispravak V5.6 prema stvarnoj Neon V5.1 shemi.
+Javna eksperimentalna verzija.
 
-- Korisnik pri unosu predaje samo tvrdnju.
-- Početna AI analiza je analitička procjena, ne sudionik rasprave.
-- Stav ostaje otvoren ljudskoj kritici.
-- Ispravljeni su nazivi PostgreSQL stupaca prema postojećoj Neon shemi: sadrzaj, razlog_promjene, verzija_modela, jasnoca, sirovi_rezultat, ulaz, izlaz.
-- Neon shema se ne mijenja.
-- Admin je zadržan na V5.4.4 osnovi.
+## Važna izmjena
+
+Popratni tekstovi tema koje administrator unese sada se trajno spremaju u postojeću Neon tablicu `rasprave`, u stupac `provokacija`, kao JSON tekst.
+
+Spremanje koristi `UPDATE` pa `INSERT`, a nakon zapisa aplikacija odmah provjerava sadržaj u bazi prije `COMMIT`-a. Nema promjene Neon sheme.
+
+## Render
+
+- Build: `pip install -r requirements.txt`
+- Start: `gunicorn app:app`
+- Health: `/health`
+- Environment: `DATABASE_URL`, `SECRET_KEY`, `ADMIN_PASSWORD`

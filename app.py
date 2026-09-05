@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, abort, flash
 import os
+import json
 import secrets
 import uuid
 from datetime import datetime, date
@@ -9,7 +10,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 ADMIN_SESSION_KEY = "admin_authenticated_v563"
@@ -106,16 +107,82 @@ def globals_for_templates():
     }
 
 
-def topic_view(row):
+def topic_view(row, persisted_content=None):
     if not row:
         return None
     d = dict(row)
-    extra = TOPIC_CONTENT.get(d.get("naziv"), {})
+    # Default/editorial content lives in code, while admin edits are persisted
+    # in Neon (rasprave.provokacija) as JSON. Database content always wins.
+    extra = dict(TOPIC_CONTENT.get(d.get("naziv"), {}))
+    if persisted_content:
+        extra.update(persisted_content)
     for k, v in extra.items():
         if not d.get(k):
             d[k] = v
     d["title"] = d.get("naziv", "")
     return d
+
+def topic_content_payload(form):
+    return {
+        "intro": form.get("intro", "").strip(),
+        "question": form.get("question", "").strip(),
+        "goal": form.get("goal", "").strip(),
+        "key_questions": form.get("key_questions", "").strip(),
+        "rules": form.get("rules", "").strip(),
+        "ai_criteria": form.get("ai_criteria", "").strip(),
+        "sources": form.get("sources", "").strip(),
+    }
+
+def load_topic_content(conn, topic_name):
+    """Load the latest admin-edited rich content without changing the schema."""
+    row = conn.execute(
+        "SELECT provokacija FROM rasprave WHERE tema=%s",
+        (topic_name,)
+    ).fetchone()
+    if not row or not row.get("provokacija"):
+        return {}
+    raw = row["provokacija"]
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (TypeError, ValueError):
+        # Backward compatibility if an older row stored only the prompt text.
+        return {"question": raw}
+
+def save_topic_content(conn, topic_name, payload):
+    """Trajno spremi urednički sadržaj teme u postojeću tablicu rasprave.
+
+    Ne mijenja Neon shemu. Namjerno koristimo UPDATE pa INSERT umjesto
+    ON CONFLICT kako bi radilo i na postojećim instalacijama gdje je
+    UNIQUE ograničenje na rasprave.tema drugačije definirano.
+    Funkcija također odmah provjerava što je stvarno zapisano u bazi.
+    """
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+    updated = conn.execute(
+        "UPDATE rasprave SET provokacija=%s WHERE tema=%s",
+        (encoded, topic_name)
+    ).rowcount
+
+    if updated == 0:
+        conn.execute(
+            "INSERT INTO rasprave (tema, provokacija) VALUES (%s,%s)",
+            (topic_name, encoded)
+        )
+
+    # Provjera prije commita: Render ne smije prijaviti uspjeh ako zapis
+    # nije stvarno spremljen u PostgreSQL.
+    check = conn.execute(
+        "SELECT provokacija FROM rasprave WHERE tema=%s",
+        (topic_name,)
+    ).fetchone()
+    if not check or check.get("provokacija") != encoded:
+        raise RuntimeError("Neuspjelo trajno spremanje sadržaja teme u Neon bazu.")
+
+    app.logger.info(
+        "Sadržaj teme trajno spremljen u Neon: tema=%r, duljina=%d",
+        topic_name, len(encoded)
+    )
 
 def analyze(text, topic=None):
     """Initial analytical profile of the claim.
@@ -169,6 +236,10 @@ def admin_guard():
         return redirect(url_for("admin_login"))
     return None
 
+@app.get("/about")
+def about():
+    return render_template("about.html")
+
 @app.get("/health")
 def health():
     required = [
@@ -187,7 +258,7 @@ def health():
             missing = [x for x in required if x not in names]
         if missing:
             return {"status": "error", "database": "connected", "missing_tables": missing}, 500
-        return {"status": "ok", "database": "connected", "schema": "v5.6.1"}
+        return {"status": "ok", "database": "connected", "schema": "v5.6.10"}
     except Exception as exc:
         app.logger.exception("Health check failed")
         return {"status": "error", "database": "unavailable", "detail": str(exc)}, 500
@@ -197,8 +268,10 @@ def index():
     with db() as conn:
         topics_raw = conn.execute("""
             SELECT t.id, t.naziv, COALESCE(t.aktivna, TRUE) AS aktivna,
+                   r.provokacija AS topic_content,
                    (SELECT COUNT(*) FROM svjetionik_misljenja m WHERE m.tema_id=t.id) AS opinion_count
             FROM teme t
+            LEFT JOIN rasprave r ON r.tema=t.naziv
             WHERE COALESCE(t.aktivna, TRUE)=TRUE
             ORDER BY t.id
         """).fetchall()
@@ -213,7 +286,15 @@ def index():
 
     topics = []
     for x in topics_raw:
-        tv = topic_view(x)
+        persisted = {}
+        if x.get("topic_content"):
+            try:
+                parsed = json.loads(x["topic_content"])
+                if isinstance(parsed, dict):
+                    persisted = parsed
+            except (TypeError, ValueError):
+                persisted = {"question": x["topic_content"]}
+        tv = topic_view(x, persisted)
         tv["title"] = tv["naziv"]
         tv["participants"] = tv.get("opinion_count", 0)
         tv["avg_score"] = None
@@ -224,8 +305,11 @@ def index():
 def topic(topic_id):
     with db() as conn:
         t = conn.execute("""
-            SELECT id, naziv, COALESCE(aktivna, TRUE) AS aktivna
-            FROM teme WHERE id=%s
+            SELECT t.id, t.naziv, COALESCE(t.aktivna, TRUE) AS aktivna,
+                   r.provokacija AS topic_content
+            FROM teme t
+            LEFT JOIN rasprave r ON r.tema=t.naziv
+            WHERE t.id=%s
         """, (topic_id,)).fetchone()
         if not t or not t["aktivna"]:
             abort(404)
@@ -252,16 +336,38 @@ def topic(topic_id):
                 WHERE misljenje_id=%s ORDER BY id
             """, (o["id"],)).fetchall()
 
-    tv = topic_view(t)
+    persisted = {}
+    if t.get("topic_content"):
+        try:
+            parsed = json.loads(t["topic_content"])
+            if isinstance(parsed, dict):
+                persisted = parsed
+        except (TypeError, ValueError):
+            persisted = {"question": t["topic_content"]}
+    tv = topic_view(t, persisted)
     return render_template("topic.html", topic=tv, opinions=opinions, replies=replies)
 
 @app.get("/topic/<int:topic_id>/write")
 def write(topic_id):
     with db() as conn:
-        t = conn.execute("SELECT id,naziv,COALESCE(aktivna,TRUE) aktivna FROM teme WHERE id=%s", (topic_id,)).fetchone()
+        t = conn.execute("""
+            SELECT t.id, t.naziv, COALESCE(t.aktivna,TRUE) AS aktivna,
+                   r.provokacija AS topic_content
+            FROM teme t
+            LEFT JOIN rasprave r ON r.tema=t.naziv
+            WHERE t.id=%s
+        """, (topic_id,)).fetchone()
     if not t or not t["aktivna"]:
         abort(404)
-    return render_template("write.html", topic=topic_view(t))
+    persisted = {}
+    if t.get("topic_content"):
+        try:
+            parsed = json.loads(t["topic_content"])
+            if isinstance(parsed, dict):
+                persisted = parsed
+        except (TypeError, ValueError):
+            persisted = {"question": t["topic_content"]}
+    return render_template("write.html", topic=topic_view(t, persisted))
 
 @app.post("/topic/<int:topic_id>/opinion")
 def save_opinion(topic_id):
@@ -275,10 +381,23 @@ def save_opinion(topic_id):
 
     user = current_user(create=True)
     with db() as conn:
-        t = conn.execute("SELECT * FROM teme WHERE id=%s AND COALESCE(aktivna,TRUE)=TRUE", (topic_id,)).fetchone()
+        t = conn.execute("""
+            SELECT t.*, r.provokacija AS topic_content
+            FROM teme t
+            LEFT JOIN rasprave r ON r.tema=t.naziv
+            WHERE t.id=%s AND COALESCE(t.aktivna,TRUE)=TRUE
+        """, (topic_id,)).fetchone()
         if not t:
             abort(404)
-        tv = topic_view(t)
+        persisted = {}
+        if t.get("topic_content"):
+            try:
+                parsed = json.loads(t["topic_content"])
+                if isinstance(parsed, dict):
+                    persisted = parsed
+            except (TypeError, ValueError):
+                persisted = {"question": t["topic_content"]}
+        tv = topic_view(t, persisted)
         scores = analyze(claim, tv)
 
         m = conn.execute("""
@@ -469,9 +588,8 @@ def admin_topic_new_v54():
             flash("Naziv teme je obavezan.", "error")
             return redirect(url_for("admin_topic_new_v54"))
 
-        # Postojeća Neon tablica 'teme' ima samo naziv/aktivna.
-        # Bogati urednički sadržaj ostaje u TOPIC_CONTENT dok ne uvedemo
-        # zasebnu trajnu tablicu.
+        # 'teme' ostaje nepromijenjena; bogati urednički sadržaj
+        # trajno spremamo u postojeću tablicu 'rasprave' kao JSON tekst.
         try:
             with db() as conn:
                 existing = conn.execute(
@@ -489,17 +607,10 @@ def admin_topic_new_v54():
                        RETURNING id, naziv, aktivna""",
                     (name,)
                 ).fetchone()
+                save_topic_content(conn, name, topic_content_payload(request.form))
                 conn.commit()
 
-            TOPIC_CONTENT[name] = {
-                "intro": request.form.get("intro", "").strip(),
-                "question": request.form.get("question", "").strip(),
-                "goal": request.form.get("goal", "").strip(),
-                "key_questions": request.form.get("key_questions", "").strip(),
-                "rules": request.form.get("rules", "").strip(),
-                "ai_criteria": request.form.get("ai_criteria", "").strip(),
-                "sources": request.form.get("sources", "").strip(),
-            }
+            TOPIC_CONTENT[name] = topic_content_payload(request.form)
 
             app.logger.info("Nova tema dodana: id=%s naziv=%s", row["id"], row["naziv"])
             flash("Tema je uspješno dodana.", "success")
@@ -552,17 +663,12 @@ def admin_topic_edit_v54(topic_id):
                     "UPDATE teme SET naziv=%s, aktivna=%s WHERE id=%s",
                     (name, active, topic_id)
                 )
+                if old_name != name:
+                    conn.execute("DELETE FROM rasprave WHERE tema=%s", (old_name,))
+                save_topic_content(conn, name, topic_content_payload(request.form))
                 conn.commit()
 
-                TOPIC_CONTENT[name] = {
-                    "intro": request.form.get("intro", "").strip(),
-                    "question": request.form.get("question", "").strip(),
-                    "goal": request.form.get("goal", "").strip(),
-                    "key_questions": request.form.get("key_questions", "").strip(),
-                    "rules": request.form.get("rules", "").strip(),
-                    "ai_criteria": request.form.get("ai_criteria", "").strip(),
-                    "sources": request.form.get("sources", "").strip(),
-                }
+                TOPIC_CONTENT[name] = topic_content_payload(request.form)
 
                 if old_name != name:
                     TOPIC_CONTENT.pop(old_name, None)
@@ -574,7 +680,8 @@ def admin_topic_edit_v54(topic_id):
                 flash("Tema je spremljena.", "success")
                 return redirect(url_for("admin_v54"))
 
-            topic = topic_view(topic)
+            persisted = load_topic_content(conn, topic["naziv"])
+            topic = topic_view(topic, persisted)
             return render_template("admin_topic_v54.html", mode="edit", topic=topic)
 
     except Exception as exc:
@@ -590,6 +697,7 @@ def admin_topic_toggle_v54(topic_id):
     try:
         with db() as conn:
             conn.execute("UPDATE teme SET aktivna=NOT COALESCE(aktivna,FALSE) WHERE id=%s", (topic_id,))
+            conn.commit()
         flash("Status teme je promijenjen.", "success")
     except Exception as exc:
         flash(f"Greška: {exc}", "error")
