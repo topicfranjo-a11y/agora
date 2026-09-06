@@ -184,65 +184,150 @@ def save_topic_content(conn, topic_name, payload):
         topic_name, len(encoded)
     )
 
-def analyze(text, topic=None):
-    """Initial analytical profile of the claim.
-    This is not a truth verdict and not a dialogue with AI.
-    It is a starting measurement before human criticism begins.
+# =========================
+# ANALITIČKI KLJUČ SVJETIONIKA (AKS) — V5.7.1
+# =========================
+# AKS nije presuda o istini. Njegova je svrha utvrditi ima li izričaj
+# dovoljno određenu misao za ozbiljnu analizu te kako se odnosi prema
+# prethodnom izričaju u lancu rasprave.
+
+ANALITICKI_KLJUC_NAZIV = "Analitički ključ Svjetionika"
+ANALITICKI_KLJUC_VERZIJA = "AKS-1.0"
+
+
+def _contains_any(text, terms):
+    return any(t in text for t in terms)
+
+
+def analyze(text, topic=None, previous_text=None):
+    """Procjena izričaja prema Analitičkom ključu Svjetionika (AKS).
+
+    Ovo je trenutno transparentna heuristika, a ne generativni AI model.
+    Razdvaja smislenost od istinitosti i daje strukturni rezultat koji se
+    kasnije može zamijeniti/pojačati stvarnim AI modelom bez promjene koncepta.
     """
+    text = (text or "").strip()
     lower = text.lower()
     words = len(text.split())
-    evidence_terms = ["izvor", "podat", "studij", "istraživ", "dokaz", "statistik", "prema", "mjeren"]
-    counter_terms = ["ali", "međutim", "s druge strane", "suprotno", "prigovor", "kritika", "ovisno"]
-    logic_terms = ["jer", "zato", "stoga", "dakle", "ako", "onda", "uzrok", "posljedica", "zbog"]
-    prediction_terms = ["predviđ", "očekujem", "do 20", "u budućnosti", "za godinu", "za 5 godina"]
 
-    criteria = ((topic or {}).get("ai_criteria") or "").lower() if topic else ""
-    clarity = min(10, max(2, 4 + words // 18 + int(any(ch in text for ch in ".,;:"))))
-    logic = min(10, 4 + min(5, sum(x in lower for x in logic_terms)))
-    evidence = min(10, 3 + 3 * int(any(x in lower for x in evidence_terms)) + int("http" in lower))
-    assumptions = min(10, 4 + int("ako" in lower) + int("pretpostav" in lower) + int("vjerojat" in lower))
-    counter = min(10, 3 + 4 * int(any(x in lower for x in counter_terms)))
-    verifiability = min(10, 3 + 4 * int(any(x in lower for x in prediction_terms)) + int("datum" in lower or "%" in lower or any(ch.isdigit() for ch in text)))
+    # 1) SMISLENOST: postoji li prepoznatljiva tvrdnja/misao?
+    filler = ["bla bla", "asdf", "qwerty", "lol", "😂😂", "haha"]
+    sentence_markers = ["je", "nije", "može", "treba", "mora", "ljudi", "tehnolog", "demokr", "pitanje"]
+    meaningful = words >= 3 and not _contains_any(lower, filler)
+    smislenost = min(10, 2 + int(meaningful) * 4 + min(4, words // 12) + int(_contains_any(lower, sentence_markers)))
 
-    if criteria:
-        if any(k in criteria for k in ["izvor", "dokaz"]):
-            evidence = min(10, evidence + 1)
-        if any(k in criteria for k in ["predvi", "provjer"]):
-            verifiability = min(10, verifiability + 1)
+    # 2) PRECIZNOST: konkretni subjekti, glagoli, uvjeti i manje praznih generalizacija.
+    vague = ["sve", "ništa", "uvijek", "nikad", "svi", "oni", "nešto", "bez veze"]
+    precise_markers = ["ako", "dok", "kada", "zato što", "jer", "pod uvjetom", "%", "godina", "broj"]
+    preciznost = min(10, max(2, 4 + int(_contains_any(lower, precise_markers)) + int(any(c.isdigit() for c in text)) - int(_contains_any(lower, vague))))
 
+    # 3) RELEVANTNOST prema temi: terminološka povezanost + pitanje teme.
+    topic_text = " ".join(str((topic or {}).get(k, "")) for k in ("title", "question", "goal", "key_questions", "ai_criteria")).lower()
+    topic_words = {w.strip(".,;:!?()[]\"'") for w in topic_text.split() if len(w.strip(".,;:!?()[]\"'")) >= 5}
+    text_words = {w.strip(".,;:!?()[]\"'") for w in lower.split() if len(w.strip(".,;:!?()[]\"'")) >= 5}
+    overlap = len(topic_words & text_words)
+    relevant_markers = ["pitanje", "tema", "problem", "zbog", "jer", "utjec", "posljed", "moral", "tehnolog", "ljudi"]
+    relevant_score = 3 + min(5, overlap) + int(_contains_any(lower, relevant_markers))
+    relevantnost = min(10, relevant_score)
+
+    # 4) LOGIČKA VEZA: razlog, uvjet, posljedica, usporedba ili jasno suprotstavljanje.
+    logic_terms = ["jer", "zato", "stoga", "dakle", "ako", "onda", "uzrok", "posljedica", "zbog", "dok", "ali", "međutim", "nego", "zato što"]
+    logic = min(10, 3 + min(6, sum(1 for t in logic_terms if t in lower)))
+
+    # 5) UTEMELJENOST / DOKAZI: ne znači istinitost; samo prisutnost oslonca.
+    evidence_terms = ["izvor", "podat", "studij", "istraživ", "dokaz", "statistik", "prema", "mjeren", "eksperiment", "broj"]
+    dokazi = min(10, 3 + 4 * int(_contains_any(lower, evidence_terms)) + int("http" in lower))
+
+    # 6) PRETPOSTAVKE: eksplicitne ili očite uvjetne konstrukcije.
+    assumption_terms = ["ako", "dok god", "pod pretpostavkom", "pretpostav", "vjerojat", "nužno", "sigurno", "mora"]
+    pretpostavke = min(10, 3 + min(6, sum(1 for t in assumption_terms if t in lower)))
+
+    # 7) PROVJERLJIVOST: postoje li elementi koje je moguće naknadno provjeriti.
+    verifiable_terms = ["postot", "%", "godin", "datum", "broj", "statistik", "studij", "istraživ", "mjeren"]
+    provjerljivost = min(10, 3 + min(6, sum(1 for t in verifiable_terms if t in lower)))
+
+    # 8) INFORMACIJSKA VRIJEDNOST: koliko izričaj daje konkretnog materijala.
+    info = 2 + min(5, words // 8) + int(_contains_any(lower, logic_terms + evidence_terms + assumption_terms))
+    if lower in {"to je glupost", "bez veze", "ma to je bez veze pitanje"}:
+        info = 2
+    informacijska_vrijednost = min(10, info)
+
+    # 9) ODNOS prema prethodnom izričaju.
+    odnos = "početna_premisa"
+    if previous_text:
+        pl = previous_text.lower()
+        if _contains_any(lower, ["slažem", "podržavam", "upravo", "točno", "također"]):
+            odnos = "podržava"
+        elif _contains_any(lower, ["ali", "međutim", "problem", "nije", "ne slažem", "suprotno", "pogrešno"]):
+            odnos = "dovodi_u_pitanje"
+        elif _contains_any(lower, ["osim", "uz to", "dodatno", "također", "šire"]):
+            odnos = "proširuje"
+        else:
+            odnos = "povezan_ali_neodređen"
+
+    # Ukupna vrijednost za kazaljku namjerno ne uključuje istinitost.
+    ukupna = round(sum([smislenost, preciznost, relevantnost, logic, dokazi, pretpostavke, provjerljivost, informacijska_vrijednost]) / 8, 1)
     return {
-        "jasnoća": clarity,
-        "logika": logic,
-        "dokazi": evidence,
-        "pretpostavke": assumptions,
-        "kontraargumenti": counter,
-        "provjerljivost": verifiability,
+        # Novi AKS kriteriji
+        "smislenost": float(smislenost),
+        "preciznost": float(preciznost),
+        "relevantnost": float(relevantnost),
+        "logicka_veza": float(logic),
+        "dokazi": float(dokazi),
+        "pretpostavke": float(pretpostavke),
+        "provjerljivost": float(provjerljivost),
+        "informacijska_vrijednost": float(informacijska_vrijednost),
+        "odnos_prema_prethodnom": odnos,
+        "ukupna_ocjena": ukupna,
+        # Kompatibilni nazivi za postojeće DB stupce / prikaz.
+        "jasnoća": float(preciznost),
+        "logika": float(logic),
+        "kontraargumenti": float(relevantnost),
+        "prag_relevantnosti": False,
     }
 
+
 def analysis_average(scores):
-    vals = [scores[k] for k in ("jasnoća", "logika", "dokazi", "pretpostavke", "provjerljivost")]
-    return round(sum(vals) / len(vals), 1)
+    return round(float(scores.get("ukupna_ocjena") or 0), 1)
+
 
 def relevance_threshold(scores):
-    """Prag relevantnosti ne odlučuje istinu; odlučuje je li tekst dovoljno oblikovan za analizu."""
+    """Prag odlučuje je li izričaj dovoljno oblikovan za ozbiljnu analizu."""
     return (
-        scores.get("jasnoća", 0) >= 4 and
-        scores.get("logika", 0) >= 4 and
-        (scores.get("dokazi", 0) >= 3 or scores.get("provjerljivost", 0) >= 3)
+        scores.get("smislenost", 0) >= 5 and
+        scores.get("preciznost", 0) >= 4 and
+        scores.get("relevantnost", 0) >= 4 and
+        scores.get("logicka_veza", 0) >= 4
     )
+
 
 def add_analysis_view(row):
     if not row:
         return row
     d = dict(row)
-    d["pocetna_ocjena"] = round(sum(float(d.get(k) or 0) for k in ("jasnoca", "logika", "dokazi", "pretpostavke", "provjerljivost")) / 5, 1)
+    raw = d.get("sirovi_rezultat") or {}
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raw = {}
+    d.update({k: raw[k] for k in ("smislenost", "preciznost", "relevantnost", "logicka_veza", "informacijska_vrijednost", "odnos_prema_prethodnom") if k in raw})
+    d["pocetna_ocjena"] = float(raw.get("ukupna_ocjena") or round(sum(float(d.get(k) or 0) for k in ("jasnoca", "logika", "dokazi", "pretpostavke", "provjerljivost")) / 5, 1))
     return d
+
 
 def add_critique_view(row):
     if not row:
         return row
     d = dict(row)
     d["ukupna_ocjena"] = float(d.get("ukupna_ocjena") or 0)
+    raw = d.get("sirovi_rezultat") or {}
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raw = {}
+    d.update({k: raw[k] for k in ("smislenost", "preciznost", "relevantnost", "logicka_veza", "informacijska_vrijednost", "odnos_prema_prethodnom") if k in raw})
     return d
 
 def admin_guard():
@@ -272,7 +357,7 @@ def health():
             missing = [x for x in required if x not in names]
         if missing:
             return {"status": "error", "database": "connected", "missing_tables": missing}, 500
-        return {"status": "ok", "database": "connected", "schema": "v5.7.0"}
+        return {"status": "ok", "database": "connected", "schema": "v5.7.1"}
     except Exception as exc:
         app.logger.exception("Health check failed")
         return {"status": "error", "database": "unavailable", "detail": str(exc)}, 500
@@ -341,7 +426,7 @@ def topic(topic_id):
         replies = {}
         for o in opinions:
             a = conn.execute("""
-                SELECT jasnoca, logika, dokazi, pretpostavke, kontraargumenti, provjerljivost, obrazlozenje
+                SELECT jasnoca, logika, dokazi, pretpostavke, kontraargumenti, provjerljivost, obrazlozenje, sirovi_rezultat
                 FROM svjetionik_analize
                 WHERE misljenje_id=%s ORDER BY id DESC LIMIT 1
             """, (o["id"],)).fetchone()
@@ -349,7 +434,7 @@ def topic(topic_id):
             replies[o["id"]] = conn.execute("""
                 SELECT k.id, k.korisnik_pseudonim, k.tekst, k.vrsta, k.status_analize, k.stvoreno_at,
                        a.jasnoca, a.logika, a.utemeljenost, a.pretpostavke, a.provjerljivost,
-                       a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje
+                       a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje, a.sirovi_rezultat
                 FROM svjetionik_kritike k
                 LEFT JOIN LATERAL (
                     SELECT * FROM svjetionik_analize_kritika ak
@@ -449,14 +534,14 @@ def save_opinion(topic_id):
         """, (
             m["id"], scores["jasnoća"], scores["logika"], scores["dokazi"],
             scores["pretpostavke"], scores["kontraargumenti"], scores["provjerljivost"],
-            "Početna analitička procjena tvrdnje. Ne utvrđuje istinu i ne sudjeluje u raspravi; služi kao početna mjerna točka prije ljudske kritike.",
+            "Analitički ključ Svjetionika (AKS-1.0): procjenjuje smislenost i strukturu izričaja; ne utvrđuje istinu.",
             Jsonb(scores)
         ))
 
         conn.execute("""
             INSERT INTO svjetionik_ai_dogadaji (misljenje_id, model, vrsta, ulaz, izlaz)
             VALUES (%s,'heuristika','početna_analiza',%s,%s)
-        """, (m["id"], Jsonb({"tema": t["naziv"], "tvrdnja": claim, "ai_criteria": tv.get("ai_criteria", "")}), Jsonb({**scores, "prag_relevantnosti": scores["prag_relevantnosti"]})))
+        """, (m["id"], Jsonb({"tema": t["naziv"], "tvrdnja": claim, "ai_criteria": tv.get("ai_criteria", "")}), Jsonb({**scores, "prag_relevantnosti": scores["prag_relevantnosti"], "analiticki_kljuc": ANALITICKI_KLJUC_NAZIV, "verzija_kljuca": ANALITICKI_KLJUC_VERZIJA})))
 
     flash("Stav je spremljen i otvoren ljudskoj kritici.", "success")
     return redirect(url_for("opinion_detail", opinion_id=m["id"]))
@@ -486,7 +571,7 @@ def save_reply(opinion_id):
 
         # Autor može odgovoriti na vlastitu tvrdnju; svi ostali unosi su kontraargumenti.
         vrsta = "odgovor_autora" if user["ip_adresa"] == opinion["korisnik_ip"] else "kontraargument"
-        scores = analyze(text, {"ai_criteria": "Provjeri jasnoću, logiku, utemeljenost, pretpostavke i provjerljivost."})
+        scores = analyze(text, {"title": opinion["tema_naziv"], "question": opinion["tvrdnja"], "ai_criteria": "Analitički ključ Svjetionika."}, previous_text=opinion["tvrdnja"])
         relevant = relevance_threshold(scores)
         status = "relevantno" if relevant else "nedovoljno_oblikovano"
         overall = analysis_average(scores)
@@ -507,7 +592,7 @@ def save_reply(opinion_id):
             k["id"], scores["jasnoća"], scores["logika"], scores["dokazi"],
             scores["pretpostavke"], scores["provjerljivost"], overall, relevant,
             "Ista početna logika vrednovanja koristi se za tvrdnju i kritiku. Prag relevantnosti ne znači da je tekst istinit ili netočan.",
-            Jsonb({**scores, "prag_relevantnosti": relevant})
+            Jsonb({**scores, "prag_relevantnosti": relevant, "analiticki_kljuc": ANALITICKI_KLJUC_NAZIV, "verzija_kljuca": ANALITICKI_KLJUC_VERZIJA})
         ))
 
         # Zadržavamo stari zapis radi kompatibilnosti s V5.x prikazima, ali nova
@@ -537,13 +622,14 @@ def opinion_detail(opinion_id):
             abort(404)
         analyses = conn.execute("""
             SELECT model, verzija_modela, jasnoca, logika, dokazi, pretpostavke,
-                   kontraargumenti, provjerljivost, obrazlozenje, stvoreno_at
+                   kontraargumenti, provjerljivost, obrazlozenje, sirovi_rezultat, stvoreno_at
             FROM svjetionik_analize WHERE misljenje_id=%s ORDER BY id DESC
         """, (opinion_id,)).fetchall()
+        analyses = [add_analysis_view(a) for a in analyses]
         replies = conn.execute("""
             SELECT k.id, k.korisnik_pseudonim, k.tekst, k.vrsta, k.status_analize, k.stvoreno_at,
                    a.jasnoca, a.logika, a.utemeljenost, a.pretpostavke, a.provjerljivost,
-                   a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje
+                   a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje, a.sirovi_rezultat
             FROM svjetionik_kritike k
             LEFT JOIN LATERAL (SELECT * FROM svjetionik_analize_kritika ak WHERE ak.kritika_id=k.id ORDER BY ak.id DESC LIMIT 1) a ON TRUE
             WHERE k.misljenje_id=%s ORDER BY k.id
@@ -577,6 +663,54 @@ def topic_discussion_database(topic_id):
         except (TypeError,ValueError):
             persisted={"question":topic_row["topic_content"]}
     return render_template("discussion_db.html", topic=topic_view(topic_row,persisted), rows=rows)
+
+@app.get("/topic/<int:topic_id>/izvjestaj")
+def topic_report(topic_id):
+    """Javni analitički izvještaj teme iz trenutno prikupljene rasprave."""
+    with db() as conn:
+        topic_row = conn.execute("""
+            SELECT t.id, t.naziv, COALESCE(t.aktivna,TRUE) AS aktivna,
+                   r.provokacija AS topic_content
+            FROM teme t LEFT JOIN rasprave r ON r.tema=t.naziv
+            WHERE t.id=%s
+        """, (topic_id,)).fetchone()
+        if not topic_row or not topic_row["aktivna"]:
+            abort(404)
+        opinions = conn.execute("""
+            SELECT m.id, m.tvrdnja, m.korisnik_pseudonim, m.stvoreno_at,
+                   a.sirovi_rezultat
+            FROM svjetionik_misljenja m
+            LEFT JOIN LATERAL (
+                SELECT * FROM svjetionik_analize WHERE misljenje_id=m.id ORDER BY id DESC LIMIT 1
+            ) a ON TRUE
+            WHERE m.tema_id=%s ORDER BY m.id
+        """, (topic_id,)).fetchall()
+        critiques = conn.execute("""
+            SELECT k.id, k.misljenje_id, k.vrsta, k.tekst, a.sirovi_rezultat,
+                   a.ukupna_ocjena, a.prag_relevantnosti
+            FROM svjetionik_kritike k
+            LEFT JOIN LATERAL (
+                SELECT * FROM svjetionik_analize_kritika WHERE kritika_id=k.id ORDER BY id DESC LIMIT 1
+            ) a ON TRUE
+            JOIN svjetionik_misljenja m ON m.id=k.misljenje_id
+            WHERE m.tema_id=%s ORDER BY k.id
+        """, (topic_id,)).fetchall()
+    persisted={}
+    if topic_row.get("topic_content"):
+        try:
+            x=json.loads(topic_row["topic_content"])
+            if isinstance(x,dict): persisted=x
+        except Exception: persisted={"question":topic_row["topic_content"]}
+    # Aggregati su deskriptivni; ne tvrde da je većina u pravu.
+    def raw_json(v):
+        if isinstance(v, dict): return v
+        try: return json.loads(v) if v else {}
+        except Exception: return {}
+    relevant = [c for c in critiques if c.get("prag_relevantnosti")]
+    return render_template("report.html", topic=topic_view(topic_row,persisted),
+                           opinions=opinions, critiques=critiques, relevant_critiques=relevant,
+                           raw_json=raw_json, key_name=ANALITICKI_KLJUC_NAZIV,
+                           key_version=ANALITICKI_KLJUC_VERZIJA)
 
 @app.get("/predictions")
 def predictions():
@@ -934,7 +1068,7 @@ def admin_opinion_detail_v54(opinion_id):
             predictions = conn.execute("SELECT * FROM svjetionik_predvidjanja WHERE misljenje_id=%s ORDER BY rok", (opinion_id,)).fetchall()
             critiques = conn.execute("""
                 SELECT k.*, a.jasnoca, a.logika, a.utemeljenost, a.pretpostavke,
-                       a.provjerljivost, a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje
+                       a.provjerljivost, a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje, a.sirovi_rezultat
                 FROM svjetionik_kritike k
                 LEFT JOIN LATERAL (SELECT * FROM svjetionik_analize_kritika ak WHERE ak.kritika_id=k.id ORDER BY ak.id DESC LIMIT 1) a ON TRUE
                 WHERE k.misljenje_id=%s ORDER BY k.id
