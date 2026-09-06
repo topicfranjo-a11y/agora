@@ -488,18 +488,32 @@ def opinion_detail(opinion_id):
 
 @app.get("/predictions")
 def predictions():
+    topic_id = request.args.get("tema_id", type=int)
     with db() as conn:
-        rows = conn.execute("""
-            SELECT p.id, p.misljenje_id, p.predvidjanje, p.rok, p.status,
-                   p.ishod, p.provjereno_at, p.biljeska,
-                   m.korisnik_pseudonim AS pseudonim,
-                   m.tema_naziv AS topic_title,
-                   m.tvrdnja AS claim
-            FROM svjetionik_predvidjanja p
-            JOIN svjetionik_misljenja m ON m.id=p.misljenje_id
-            ORDER BY p.rok ASC NULLS LAST, p.id DESC
-        """).fetchall()
-    return render_template("predictions.html", predictions=rows)
+        if topic_id:
+            rows = conn.execute("""
+                SELECT p.id, p.misljenje_id, p.predvidjanje, p.rok, p.status,
+                       p.ishod, p.provjereno_at, p.biljeska,
+                       m.korisnik_pseudonim AS pseudonim,
+                       m.tema_naziv AS topic_title,
+                       m.tvrdnja AS claim
+                FROM svjetionik_predvidjanja p
+                JOIN svjetionik_misljenja m ON m.id=p.misljenje_id
+                WHERE m.tema_id=%s
+                ORDER BY p.rok ASC NULLS LAST, p.id DESC
+            """, (topic_id,)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT p.id, p.misljenje_id, p.predvidjanje, p.rok, p.status,
+                       p.ishod, p.provjereno_at, p.biljeska,
+                       m.korisnik_pseudonim AS pseudonim,
+                       m.tema_naziv AS topic_title,
+                       m.tvrdnja AS claim
+                FROM svjetionik_predvidjanja p
+                JOIN svjetionik_misljenja m ON m.id=p.misljenje_id
+                ORDER BY p.rok ASC NULLS LAST, p.id DESC
+            """).fetchall()
+    return render_template("predictions.html", predictions=rows, topic_id=topic_id)
 
 @app.post("/pseudonym")
 def change_pseudonym():
@@ -570,9 +584,6 @@ def admin_v54():
                 "opinions": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_misljenja").fetchone()["n"],
                 "replies": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_odgovori").fetchone()["n"],
                 "predictions": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_predvidjanja").fetchone()["n"],
-                "open_predictions": conn.execute(
-                    "SELECT COUNT(*) AS n FROM svjetionik_predvidjanja WHERE status='otvoreno'"
-                ).fetchone()["n"],
                 "participants": conn.execute("SELECT COUNT(*) AS n FROM korisnici").fetchone()["n"],
                 "analyses": conn.execute("SELECT COUNT(*) AS n FROM svjetionik_analize").fetchone()["n"],
             }
@@ -839,13 +850,21 @@ def admin_opinion_detail_v54(opinion_id):
 def admin_predictions_v54():
     if not admin_required_v54():
         return admin_redirect_v54()
+    topic_id = request.args.get("tema_id", type=int)
     try:
         with db() as conn:
-            predictions = conn.execute("""SELECT p.*,m.tvrdnja,m.korisnik_pseudonim,t.naziv AS topic_title
-                FROM svjetionik_predvidjanja p JOIN svjetionik_misljenja m ON m.id=p.misljenje_id
-                LEFT JOIN teme t ON t.id=m.tema_id
-                ORDER BY CASE WHEN p.status='otvoreno' THEN 0 ELSE 1 END,p.rok ASC NULLS LAST""").fetchall()
-        return render_template("admin_predictions_v54.html", predictions=predictions)
+            if topic_id:
+                predictions = conn.execute("""SELECT p.*,m.tvrdnja,m.korisnik_pseudonim,t.naziv AS topic_title
+                    FROM svjetionik_predvidjanja p JOIN svjetionik_misljenja m ON m.id=p.misljenje_id
+                    LEFT JOIN teme t ON t.id=m.tema_id
+                    WHERE t.id=%s
+                    ORDER BY CASE WHEN p.status='otvoreno' THEN 0 ELSE 1 END,p.rok ASC NULLS LAST""", (topic_id,)).fetchall()
+            else:
+                predictions = conn.execute("""SELECT p.*,m.tvrdnja,m.korisnik_pseudonim,t.naziv AS topic_title
+                    FROM svjetionik_predvidjanja p JOIN svjetionik_misljenja m ON m.id=p.misljenje_id
+                    LEFT JOIN teme t ON t.id=m.tema_id
+                    ORDER BY CASE WHEN p.status='otvoreno' THEN 0 ELSE 1 END,p.rok ASC NULLS LAST""").fetchall()
+        return render_template("admin_predictions_v54.html", predictions=predictions, topic_id=topic_id)
     except Exception as exc:
         flash(f"Greška: {exc}", "error")
         return redirect(url_for("admin_v54"))
