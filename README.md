@@ -14,3 +14,7 @@ Spremanje koristi `UPDATE` pa `INSERT`, a nakon zapisa aplikacija odmah provjera
 - Start: `gunicorn app:app`
 - Health: `/health`
 - Environment: `DATABASE_URL`, `SECRET_KEY`, `ADMIN_PASSWORD`
+
+
+## V5.7.0
+Tvrdnje i kritike imaju isti analitički ključ; kritike se spremaju u svjetionik_kritike i svjetionik_analize_kritika. Tekst je ograničen na 500 znakova. Dodan je prag relevantnosti i javna baza rasprave po temi.

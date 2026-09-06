@@ -220,15 +220,29 @@ def analyze(text, topic=None):
     }
 
 def analysis_average(scores):
-    vals = [scores[k] for k in ("jasnoća", "logika", "dokazi", "pretpostavke", "kontraargumenti", "provjerljivost")]
+    vals = [scores[k] for k in ("jasnoća", "logika", "dokazi", "pretpostavke", "provjerljivost")]
     return round(sum(vals) / len(vals), 1)
+
+def relevance_threshold(scores):
+    """Prag relevantnosti ne odlučuje istinu; odlučuje je li tekst dovoljno oblikovan za analizu."""
+    return (
+        scores.get("jasnoća", 0) >= 4 and
+        scores.get("logika", 0) >= 4 and
+        (scores.get("dokazi", 0) >= 3 or scores.get("provjerljivost", 0) >= 3)
+    )
 
 def add_analysis_view(row):
     if not row:
         return row
     d = dict(row)
-    d["otpornost"] = d.get("kontraargumenti")
-    d["pocetna_ocjena"] = round(sum(d.get(k, 0) for k in ("jasnoća", "logika", "dokazi", "pretpostavke", "kontraargumenti", "provjerljivost")) / 6, 1)
+    d["pocetna_ocjena"] = round(sum(float(d.get(k) or 0) for k in ("jasnoca", "logika", "dokazi", "pretpostavke", "provjerljivost")) / 5, 1)
+    return d
+
+def add_critique_view(row):
+    if not row:
+        return row
+    d = dict(row)
+    d["ukupna_ocjena"] = float(d.get("ukupna_ocjena") or 0)
     return d
 
 def admin_guard():
@@ -246,7 +260,7 @@ def health():
         "teme", "argumenti", "korisnici",
         "svjetionik_misljenja", "svjetionik_odgovori",
         "svjetionik_analize", "svjetionik_predvidjanja",
-        "svjetionik_verzije_misljenja", "svjetionik_ai_dogadaji"
+        "svjetionik_verzije_misljenja", "svjetionik_ai_dogadaji", "svjetionik_kritike", "svjetionik_analize_kritika"
     ]
     try:
         with db() as conn:
@@ -258,7 +272,7 @@ def health():
             missing = [x for x in required if x not in names]
         if missing:
             return {"status": "error", "database": "connected", "missing_tables": missing}, 500
-        return {"status": "ok", "database": "connected", "schema": "v5.6.11"}
+        return {"status": "ok", "database": "connected", "schema": "v5.7.0"}
     except Exception as exc:
         app.logger.exception("Health check failed")
         return {"status": "error", "database": "unavailable", "detail": str(exc)}, 500
@@ -333,9 +347,15 @@ def topic(topic_id):
             """, (o["id"],)).fetchone()
             o["analysis"] = add_analysis_view(a)
             replies[o["id"]] = conn.execute("""
-                SELECT korisnik_pseudonim, tekst, stvoreno_at
-                FROM svjetionik_odgovori
-                WHERE misljenje_id=%s ORDER BY id
+                SELECT k.id, k.korisnik_pseudonim, k.tekst, k.vrsta, k.status_analize, k.stvoreno_at,
+                       a.jasnoca, a.logika, a.utemeljenost, a.pretpostavke, a.provjerljivost,
+                       a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje
+                FROM svjetionik_kritike k
+                LEFT JOIN LATERAL (
+                    SELECT * FROM svjetionik_analize_kritika ak
+                    WHERE ak.kritika_id=k.id ORDER BY ak.id DESC LIMIT 1
+                ) a ON TRUE
+                WHERE k.misljenje_id=%s ORDER BY k.id
             """, (o["id"],)).fetchall()
 
     persisted = {}
@@ -380,6 +400,9 @@ def save_opinion(topic_id):
     if len(claim) < 20:
         flash("Tvrdnja mora imati barem 20 znakova.", "error")
         return redirect(url_for("write", topic_id=topic_id))
+    if len(claim) > 500:
+        flash("Tvrdnja može imati najviše 500 znakova.", "error")
+        return redirect(url_for("write", topic_id=topic_id))
 
     user = current_user(create=True)
     with db() as conn:
@@ -401,6 +424,7 @@ def save_opinion(topic_id):
                 persisted = {"question": t["topic_content"]}
         tv = topic_view(t, persisted)
         scores = analyze(claim, tv)
+        scores["prag_relevantnosti"] = relevance_threshold(scores)
 
         m = conn.execute("""
             INSERT INTO svjetionik_misljenja
@@ -432,7 +456,7 @@ def save_opinion(topic_id):
         conn.execute("""
             INSERT INTO svjetionik_ai_dogadaji (misljenje_id, model, vrsta, ulaz, izlaz)
             VALUES (%s,'heuristika','početna_analiza',%s,%s)
-        """, (m["id"], Jsonb({"tema": t["naziv"], "tvrdnja": claim, "ai_criteria": tv.get("ai_criteria", "")}), Jsonb(scores)))
+        """, (m["id"], Jsonb({"tema": t["naziv"], "tvrdnja": claim, "ai_criteria": tv.get("ai_criteria", "")}), Jsonb({**scores, "prag_relevantnosti": scores["prag_relevantnosti"]})))
 
     flash("Stav je spremljen i otvoren ljudskoj kritici.", "success")
     return redirect(url_for("opinion_detail", opinion_id=m["id"]))
@@ -442,20 +466,61 @@ def save_reply(opinion_id):
     if not validate_csrf():
         abort(400)
     text = request.form.get("text", "").strip()
-    if len(text) < 5:
-        flash("Protuargument/odgovor mora imati barem 5 znakova.", "error")
+    if len(text) < 20:
+        flash("Kritika mora imati barem 20 znakova.", "error")
+        return redirect(request.referrer or url_for("index"))
+    if len(text) > 500:
+        flash("Kritika može imati najviše 500 znakova.", "error")
         return redirect(request.referrer or url_for("index"))
 
     user = current_user(create=True)
     with db() as conn:
-        exists = conn.execute("SELECT id FROM svjetionik_misljenja WHERE id=%s", (opinion_id,)).fetchone()
-        if not exists:
+        opinion = conn.execute("""
+            SELECT m.id, m.tema_id, m.tema_naziv, m.korisnik_ip, m.tvrdnja, t.aktivna
+            FROM svjetionik_misljenja m
+            JOIN teme t ON t.id=m.tema_id
+            WHERE m.id=%s AND COALESCE(t.aktivna, TRUE)=TRUE
+        """, (opinion_id,)).fetchone()
+        if not opinion:
             abort(404)
+
+        # Autor može odgovoriti na vlastitu tvrdnju; svi ostali unosi su kontraargumenti.
+        vrsta = "odgovor_autora" if user["ip_adresa"] == opinion["korisnik_ip"] else "kontraargument"
+        scores = analyze(text, {"ai_criteria": "Provjeri jasnoću, logiku, utemeljenost, pretpostavke i provjerljivost."})
+        relevant = relevance_threshold(scores)
+        status = "relevantno" if relevant else "nedovoljno_oblikovano"
+        overall = analysis_average(scores)
+
+        k = conn.execute("""
+            INSERT INTO svjetionik_kritike
+            (misljenje_id, korisnik_ip, korisnik_pseudonim, vrsta, tekst, status_analize)
+            VALUES (%s,%s,%s,%s,%s,%s) RETURNING id
+        """, (opinion_id, user["ip_adresa"], user["pseudonim"], vrsta, text, status)).fetchone()
+
         conn.execute("""
-            INSERT INTO svjetionik_odgovori
-            (misljenje_id, korisnik_ip, korisnik_pseudonim, tekst)
+            INSERT INTO svjetionik_analize_kritika
+            (kritika_id, model, verzija_modela, jasnoca, logika, utemeljenost,
+             pretpostavke, provjerljivost, ukupna_ocjena, prag_relevantnosti,
+             obrazlozenje, sirovi_rezultat)
+            VALUES (%s,'heuristika','v5.7',%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (
+            k["id"], scores["jasnoća"], scores["logika"], scores["dokazi"],
+            scores["pretpostavke"], scores["provjerljivost"], overall, relevant,
+            "Ista početna logika vrednovanja koristi se za tvrdnju i kritiku. Prag relevantnosti ne znači da je tekst istinit ili netočan.",
+            Jsonb({**scores, "prag_relevantnosti": relevant})
+        ))
+
+        # Zadržavamo stari zapis radi kompatibilnosti s V5.x prikazima, ali nova
+        # analitička baza koristi svjetionik_kritike i svjetionik_analize_kritika.
+        conn.execute("""
+            INSERT INTO svjetionik_odgovori (misljenje_id, korisnik_ip, korisnik_pseudonim, tekst)
             VALUES (%s,%s,%s,%s)
         """, (opinion_id, user["ip_adresa"], user["pseudonim"], text))
+
+    if relevant:
+        flash("Kritika je spremljena i analitički vrednovana.", "success")
+    else:
+        flash("Kritika je spremljena, ali nije dovoljno oblikovana za analizu.", "error")
     return redirect(request.referrer or url_for("index"))
 
 
@@ -476,8 +541,12 @@ def opinion_detail(opinion_id):
             FROM svjetionik_analize WHERE misljenje_id=%s ORDER BY id DESC
         """, (opinion_id,)).fetchall()
         replies = conn.execute("""
-            SELECT korisnik_pseudonim, tekst, stvoreno_at
-            FROM svjetionik_odgovori WHERE misljenje_id=%s ORDER BY id
+            SELECT k.id, k.korisnik_pseudonim, k.tekst, k.vrsta, k.status_analize, k.stvoreno_at,
+                   a.jasnoca, a.logika, a.utemeljenost, a.pretpostavke, a.provjerljivost,
+                   a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje
+            FROM svjetionik_kritike k
+            LEFT JOIN LATERAL (SELECT * FROM svjetionik_analize_kritika ak WHERE ak.kritika_id=k.id ORDER BY ak.id DESC LIMIT 1) a ON TRUE
+            WHERE k.misljenje_id=%s ORDER BY k.id
         """, (opinion_id,)).fetchall()
         predictions = conn.execute("""
             SELECT * FROM svjetionik_predvidjanja
@@ -485,6 +554,29 @@ def opinion_detail(opinion_id):
         """, (opinion_id,)).fetchall()
     return render_template("opinion.html", opinion=m, analyses=analyses,
                            replies=replies, predictions=predictions)
+
+@app.get("/topic/<int:topic_id>/rasprava")
+def topic_discussion_database(topic_id):
+    """Javna baza tvrdnji i kontraargumenata jedne aktivne teme."""
+    with db() as conn:
+        topic_row = conn.execute("""
+            SELECT t.id, t.naziv, COALESCE(t.aktivna,TRUE) AS aktivna, r.provokacija AS topic_content
+            FROM teme t LEFT JOIN rasprave r ON r.tema=t.naziv WHERE t.id=%s
+        """, (topic_id,)).fetchone()
+        if not topic_row or not topic_row["aktivna"]:
+            abort(404)
+        rows = conn.execute("""
+            SELECT * FROM svjetionik_baza_rasprave
+            WHERE tema_id=%s ORDER BY misljenje_id DESC, kritika_id ASC
+        """, (topic_id,)).fetchall()
+    persisted = {}
+    if topic_row.get("topic_content"):
+        try:
+            parsed=json.loads(topic_row["topic_content"])
+            if isinstance(parsed,dict): persisted=parsed
+        except (TypeError,ValueError):
+            persisted={"question":topic_row["topic_content"]}
+    return render_template("discussion_db.html", topic=topic_view(topic_row,persisted), rows=rows)
 
 @app.get("/predictions")
 def predictions():
@@ -840,8 +932,15 @@ def admin_opinion_detail_v54(opinion_id):
             analyses = conn.execute("SELECT * FROM svjetionik_analize WHERE misljenje_id=%s ORDER BY stvoreno_at DESC", (opinion_id,)).fetchall()
             replies = conn.execute("SELECT * FROM svjetionik_odgovori WHERE misljenje_id=%s ORDER BY stvoreno_at DESC", (opinion_id,)).fetchall()
             predictions = conn.execute("SELECT * FROM svjetionik_predvidjanja WHERE misljenje_id=%s ORDER BY rok", (opinion_id,)).fetchall()
+            critiques = conn.execute("""
+                SELECT k.*, a.jasnoca, a.logika, a.utemeljenost, a.pretpostavke,
+                       a.provjerljivost, a.ukupna_ocjena, a.prag_relevantnosti, a.obrazlozenje
+                FROM svjetionik_kritike k
+                LEFT JOIN LATERAL (SELECT * FROM svjetionik_analize_kritika ak WHERE ak.kritika_id=k.id ORDER BY ak.id DESC LIMIT 1) a ON TRUE
+                WHERE k.misljenje_id=%s ORDER BY k.id
+            """, (opinion_id,)).fetchall()
         return render_template("admin_opinion_detail_v54.html", opinion=opinion, analyses=analyses,
-                               replies=replies, predictions=predictions)
+                               replies=replies, critiques=critiques, predictions=predictions)
     except Exception as exc:
         flash(f"Greška: {exc}", "error")
         return redirect(url_for("admin_opinions_v54"))
