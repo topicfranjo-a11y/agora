@@ -13,7 +13,7 @@
 <form method="post" action="{{url_for('save_opinion',topic_id=topic.id)}}" class="editor">
   <input type="hidden" name="csrf_token" value="{{csrf_token}}">
   <label>TVRDNJA
-    <textarea name="claim" required minlength="20" placeholder="Što zapravo tvrdiš?"></textarea>
+    <textarea name="claim" required minlength="20" maxlength="500" placeholder="Što zapravo tvrdiš?"></textarea><div class="char-counter">najviše 500 znakova</div>
   </label>
   <button class="primary">Objavi stav i prepusti ga kritici</button>
 </form>

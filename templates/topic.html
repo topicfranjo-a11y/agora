@@ -3,9 +3,7 @@
 {% block content %}
 <a class="back" href="{{ url_for('index') }}">← Sve teme</a>
 <section class="hero">
-  <div class="label">TEMA</div>
-  <h1>{{ topic.title }}</h1>
-  <p>{{ topic.intro }}</p>
+  <div class="label">TEMA</div><h1>{{ topic.title }}</h1><p>{{ topic.intro }}</p>
   {% if topic.question %}<blockquote>{{ topic.question }}</blockquote>{% endif %}
 </section>
 {% if topic.goal %}<section class="card"><div class="label">CILJ RASPRAVE</div><p>{{ topic.goal }}</p></section>{% endif %}
@@ -13,28 +11,22 @@
   {% if topic.key_questions %}<section class="card"><div class="label">KLJUČNA PITANJA</div><ul>{% for q in topic.key_questions.split('\n') if q.strip() %}<li>{{ q }}</li>{% endfor %}</ul></section>{% endif %}
   {% if topic.rules %}<section class="card"><div class="label">PRAVILA</div><p>{{ topic.rules|replace('\n','<br>')|safe }}</p></section>{% endif %}
 </div>
-<div class="admin-nav" style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 20px;"><a class="button primary" href="{{ url_for('write', topic_id=topic.id) }}">Iznesi svoj stav</a><a class="button" href="{{ url_for('predictions', tema_id=topic.id) }}">Predviđanja teme</a></div>
-<section class="card">
-  <div class="label">SVJETIONIK</div>
-  <h2>Stavovi zajednice</h2>
-  <p class="muted">Svaki stav ostaje otvoren ljudskoj kritici. Početna AI analiza služi samo kao analitička mjerna točka.</p>
-  {% for o in opinions %}
-  <article class="opinion">
-    <div class="opinion-head"><strong>{{ o.korisnik_pseudonim }}</strong><span>{{ o.stvoreno_at.strftime('%d.%m.%Y. %H:%M') if o.stvoreno_at else '' }}</span></div>
-    <h3>Tvrdnja</h3><p>{{ o.tvrdnja }}</p>
-    {% if o.analysis %}
-    <div class="label">POČETNA AI ANALIZA</div>
-    <div class="score-bars">
-      {% for label,key in [('Jasnoća','jasnoca'),('Logika','logika'),('Utemeljenost','dokazi'),('Provjerljivost','provjerljivost'),('Pretpostavke','pretpostavke'),('Otpornost','otpornost')] %}
-      <div class="score-row"><span>{{ label }}</span><div class="score-track"><div class="score-fill" style="width: {{ (o.analysis[key] or 0) * 10 }}%"></div></div><b>{{ o.analysis[key] }}/10</b></div>
-      {% endfor %}
-    </div>
-    <div class="score-summary"><strong>Početna analitička ocjena: {{ o.analysis.pocetna_ocjena }}/10</strong><span>Ne odlučuje o istinitosti stava.</span></div>
-    {% endif %}
-    <div class="discussion-head"><strong>KRITIKA SUDIONIKA</strong><span>{{ o.reply_count }} odgovora</span></div>
-    {% for r in replies.get(o.id, []) %}<div class="reply"><strong>{{ r.korisnik_pseudonim }}</strong><p>{{ r.tekst }}</p><small>{{ r.stvoreno_at.strftime('%d.%m.%Y. %H:%M') if r.stvoreno_at else '' }}</small></div>{% else %}<p class="muted">Još nema kritika. Budi prvi koji će ozbiljno osporiti ili podržati ovaj stav.</p>{% endfor %}
-    <form class="critic-form" method="post" action="{{ url_for('save_reply', opinion_id=o.id) }}" style="display:flex;flex-direction:column;align-items:stretch;gap:12px;width:100%;margin-top:14px;"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><textarea name="text" required placeholder="Iznesi ozbiljan protuargument ili odgovor…" style="display:block;width:100%;min-width:0;min-height:110px;box-sizing:border-box;resize:vertical;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#07131b;color:var(--text);font:16px/1.45 system-ui,Segoe UI,sans-serif;"></textarea><button type="submit" style="display:block;width:100%;min-height:46px;padding:10px 16px;box-sizing:border-box;">Objavi kritiku</button></form>
-  </article>
-  {% else %}<p class="muted">Još nema stavova. Budi prvi.</p>{% endfor %}
+<div class="admin-nav" style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 20px;">
+<a class="button primary" href="{{ url_for('write', topic_id=topic.id) }}">Iznesi svoj stav</a>
+<a class="button" href="{{ url_for('topic_discussion_database', topic_id=topic.id) }}">Baza rasprave</a>
+<a class="button" href="{{ url_for('predictions', tema_id=topic.id) }}">Predviđanja teme</a>
+</div>
+<section class="card"><div class="label">SVJETIONIK</div><h2>Stavovi zajednice</h2><p class="muted">Tvrdnja i kritika vrednuju se istim logičkim ključem. Početna ocjena ne odlučuje o istini.</p>
+{% for o in opinions %}
+<article class="opinion">
+<div class="opinion-head"><strong>{{ o.korisnik_pseudonim }}</strong><span>{{ o.stvoreno_at.strftime('%d.%m.%Y. %H:%M') if o.stvoreno_at else '' }}</span></div>
+<h3>TVRDNJA</h3><p>{{ o.tvrdnja }}</p>
+{% if o.analysis %}<div class="score-gauge-wrap"><div class="score-gauge" style="--score:{{ o.analysis.pocetna_ocjena * 10 }}"><span class="needle"></span><span class="hub"></span><span class="score-gauge-value">{{ o.analysis.pocetna_ocjena }}</span></div><div class="gauge-legend"><strong>Početna analitička ocjena</strong>lijevo = slabo · desno = vrlo dobro<br><span class="muted">Otvorena je ljudskoj kritici.</span></div></div>{% endif %}
+{% if o.analysis %}<details><summary>Prikaži analitički ključ</summary><div class="scores"><span>Jasnoća {{o.analysis.jasnoca}}/10</span><span>Logika {{o.analysis.logika}}/10</span><span>Utemeljenost {{o.analysis.dokazi}}/10</span><span>Pretpostavke {{o.analysis.pretpostavke}}/10</span><span>Provjerljivost {{o.analysis.provjerljivost}}/10</span></div></details>{% endif %}
+<div class="discussion-head"><strong>KRITIKA SUDIONIKA</strong><span>{{ o.reply_count }} zapisa</span></div>
+{% for r in replies.get(o.id, []) %}<div class="critique-card"><div class="critique-meta"><strong>{{ 'ODGOVOR AUTORA' if r.vrsta == 'odgovor_autora' else 'KONTRAARGUMENT' }} · {{ r.korisnik_pseudonim }}</strong>{% if r.prag_relevantnosti %}<span class="status-badge status-good">Relevantno · {{ r.ukupna_ocjena }}/10</span>{% else %}<span class="status-badge status-muted">Nije dovoljno oblikovano za analizu</span>{% endif %}</div><p>{{ r.tekst }}</p>{% if r.prag_relevantnosti %}<div class="score-gauge-wrap"><div class="score-gauge" style="--score:{{ (r.ukupna_ocjena or 0) * 10 }}"><span class="needle"></span><span class="hub"></span><span class="score-gauge-value">{{ r.ukupna_ocjena }}</span></div><div class="gauge-legend"><strong>Analitička ocjena {{ 'odgovora autora' if r.vrsta == 'odgovor_autora' else 'kontraargumenta' }}</strong>lijevo = slabo · desno = vrlo dobro</div></div><details><summary>Prikaži analitički ključ</summary><div class="scores"><span>Jasnoća {{r.jasnoca}}/10</span><span>Logika {{r.logika}}/10</span><span>Utemeljenost {{r.utemeljenost}}/10</span><span>Pretpostavke {{r.pretpostavke}}/10</span><span>Provjerljivost {{r.provjerljivost}}/10</span></div></details>{% endif %}<small>{{ r.stvoreno_at.strftime('%d.%m.%Y. %H:%M') if r.stvoreno_at else '' }}</small></div>{% else %}<p class="muted discussion-empty">Još nema kritika. Budi prvi koji će ozbiljno osporiti ovaj stav.</p>{% endfor %}
+<form class="critic-form" method="post" action="{{ url_for('save_reply', opinion_id=o.id) }}" style="display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%;margin-top:14px;"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><textarea name="text" required minlength="20" maxlength="500" placeholder="Iznesi ozbiljan protuargument ili odgovor…" style="display:block;width:100%;min-height:110px;box-sizing:border-box;resize:vertical;padding:12px 14px;"></textarea><div class="char-counter">najviše 500 znakova</div><button type="submit" style="display:block;width:100%;min-height:46px;">Objavi</button></form>
+</article>
+{% else %}<p class="muted">Još nema stavova. Budi prvi.</p>{% endfor %}
 </section>
 {% endblock %}

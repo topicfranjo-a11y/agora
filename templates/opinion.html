@@ -1,21 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Stav · Civilizacijski svjetionik{% endblock %}
 {% block content %}
-<a class="back" href="{{ url_for('topic',topic_id=opinion.tema_id) }}">← Povratak na temu</a>
+<a class="back" href="{{url_for('topic',topic_id=opinion.tema_id)}}">← Povratak na temu</a>
 <section class="hero opinion-detail"><div class="label">{{ opinion.tema_naziv }}</div><h1>{{ opinion.tvrdnja }}</h1><p class="meta">{{ opinion.korisnik_pseudonim }} · {{ opinion.stvoreno_at }}</p></section>
-{% for a in analyses %}
-<section class="card">
-  <div class="label">POČETNA AI ANALIZA · {{ a.model }}</div>
-  <div class="score-bars">
-    {% for label,key in [('Jasnoća','jasnoca'),('Logika','logika'),('Utemeljenost','dokazi'),('Provjerljivost','provjerljivost'),('Pretpostavke','pretpostavke'),('Otpornost','kontraargumenti')] %}
-    <div class="score-row"><span>{{ label }}</span><div class="score-track"><div class="score-fill" style="width: {{ (a[key] or 0) * 10 }}%"></div></div><b>{{ a[key] }}/10</b></div>
-    {% endfor %}
-  </div>
-  <p>{{ a.obrazlozenje }}</p>
-  <p class="muted">Ova procjena je početna mjerna točka. Konačnu vrijednost otpornosti stvarat će ljudska rasprava.</p>
-</section>
-{% endfor %}
-<section class="card"><div class="label">RASPRAVA</div><h2>Stav je otvoren kritici</h2>
-{% for r in replies %}<article class="reply"><strong>{{ r.korisnik_pseudonim }}</strong><p>{{ r.tekst }}</p><small>{{ r.stvoreno_at }}</small></article>{% else %}<p class="muted">Još nema odgovora.</p>{% endfor %}
-<form class="critic-form" method="post" action="{{ url_for('save_reply', opinion_id=opinion.id) }}" style="display:flex;flex-direction:column;align-items:stretch;gap:12px;width:100%;margin-top:14px;"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><textarea name="text" required placeholder="Iznesi ozbiljan protuargument…" style="display:block;width:100%;min-width:0;min-height:110px;box-sizing:border-box;resize:vertical;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#07131b;color:var(--text);font:16px/1.45 system-ui,Segoe UI,sans-serif;"></textarea><button type="submit" style="display:block;width:100%;min-height:46px;padding:10px 16px;box-sizing:border-box;">Objavi kritiku</button></form></section>
+{% for a in analyses %}<section class="card"><div class="label">POČETNA AI ANALIZA · {{a.model}}</div><div class="score-gauge-wrap"><div class="score-gauge" style="--score:{{ ((a.jasnoca or 0)+(a.logika or 0)+(a.dokazi or 0)+(a.pretpostavke or 0)+(a.provjerljivost or 0))/5*10 }}"><span class="needle"></span><span class="hub"></span><span class="score-gauge-value">{{ '%.1f'|format(((a.jasnoca or 0)+(a.logika or 0)+(a.dokazi or 0)+(a.pretpostavke or 0)+(a.provjerljivost or 0))/5) }}</span></div><div class="gauge-legend"><strong>Početna analitička ocjena</strong>lijevo = slabo · desno = vrlo dobro</div></div><details><summary>Prikaži analitički ključ</summary><div class="scores"><span>Jasnoća {{a.jasnoca}}/10</span><span>Logika {{a.logika}}/10</span><span>Utemeljenost {{a.dokazi}}/10</span><span>Pretpostavke {{a.pretpostavke}}/10</span><span>Provjerljivost {{a.provjerljivost}}/10</span></div></details><p>{{a.obrazlozenje}}</p></section>{% endfor %}
+<section class="card"><div class="label">RASPRAVA</div><h2>Tvrdnja je otvorena kritici</h2>{% for r in replies %}<article class="critique-card"><div class="critique-meta"><strong>{{ 'ODGOVOR AUTORA' if r.vrsta == 'odgovor_autora' else 'KONTRAARGUMENT' }} · {{r.korisnik_pseudonim}}</strong>{% if r.prag_relevantnosti %}<span class="status-badge status-good">Relevantno · {{r.ukupna_ocjena}}/10</span>{% else %}<span class="status-badge status-muted">Nije dovoljno oblikovano za analizu</span>{% endif %}</div><p>{{r.tekst}}</p>{% if r.prag_relevantnosti %}<div class="score-gauge-wrap"><div class="score-gauge" style="--score:{{(r.ukupna_ocjena or 0)*10}}"><span class="needle"></span><span class="hub"></span><span class="score-gauge-value">{{r.ukupna_ocjena}}</span></div><div class="gauge-legend"><strong>Analitička ocjena</strong>lijevo = slabo · desno = vrlo dobro</div></div>{% endif %}</article>{% else %}<p class="muted">Još nema kontraargumenata.</p>{% endfor %}<form class="critic-form" method="post" action="{{url_for('save_reply',opinion_id=opinion.id)}}" style="display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%;margin-top:14px;"><input type="hidden" name="csrf_token" value="{{csrf_token}}"><textarea name="text" required minlength="20" maxlength="500" placeholder="Iznesi ozbiljan protuargument ili odgovor…" style="display:block;width:100%;min-height:110px;box-sizing:border-box;resize:vertical;padding:12px 14px;"></textarea><div class="char-counter">najviše 500 znakova</div><button type="submit" style="display:block;width:100%;min-height:46px;">Objavi</button></form></section>
 {% endblock %}
