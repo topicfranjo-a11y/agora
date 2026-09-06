@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Predviđanja · Civilizacijski svjetionik{% endblock %}
-{% block content %}
+{% block content %}{% if topic_id %}<a class="back" href="{{ url_for('index') }}">← Sve teme</a>{% endif %}
 <section class="hero">
   <div class="label">VRIJEME KAO SUDAC</div>
   <h1>Što smo predvidjeli — i što se dogodilo?</h1>

@@ -13,7 +13,7 @@
   {% if topic.key_questions %}<section class="card"><div class="label">KLJUČNA PITANJA</div><ul>{% for q in topic.key_questions.split('\n') if q.strip() %}<li>{{ q }}</li>{% endfor %}</ul></section>{% endif %}
   {% if topic.rules %}<section class="card"><div class="label">PRAVILA</div><p>{{ topic.rules|replace('\n','<br>')|safe }}</p></section>{% endif %}
 </div>
-<a class="button primary" href="{{ url_for('write', topic_id=topic.id) }}">Iznesi svoj stav</a>
+<div class="admin-nav" style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 20px;"><a class="button primary" href="{{ url_for('write', topic_id=topic.id) }}">Iznesi svoj stav</a><a class="button" href="{{ url_for('predictions', tema_id=topic.id) }}">Predviđanja teme</a></div>
 <section class="card">
   <div class="label">SVJETIONIK</div>
   <h2>Stavovi zajednice</h2>
