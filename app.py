@@ -185,7 +185,7 @@ def save_topic_content(conn, topic_name, payload):
     )
 
 # =========================
-# ANALITIČKI KLJUČ SVJETIONIKA (AKS) — V5.7.1
+# ANALITIČKI KLJUČ SVJETIONIKA (AKS) — V5.7.2
 # =========================
 # AKS nije presuda o istini. Njegova je svrha utvrditi ima li izričaj
 # dovoljno određenu misao za ozbiljnu analizu te kako se odnosi prema
@@ -291,6 +291,48 @@ def analysis_average(scores):
     return round(float(scores.get("ukupna_ocjena") or 0), 1)
 
 
+def quick_logic_gate(text):
+    """Jeftini ulazni filter prije pune AKS analize.
+
+    Svrha mu nije ocijeniti kvalitetu nego spriječiti da čisti
+    podsmijeh, osobna prozivka ili nerazumljiv tekst otvore novo
+    analitičko grananje i troše dublje analitičke resurse.
+    Izričaj koji ne prođe i dalje se može zabilježiti kao dio
+    sirovog tijeka rasprave.
+    """
+    t = (text or "").strip().lower()
+    words = [w for w in t.split() if w]
+    if len(text.strip()) < 20 or len(text.strip()) > 500:
+        return False
+
+    # Tipični čisti podsmijeh / osobne prozivke bez sadržajne tvrdnje.
+    hostile_only = [
+        "nemaš pojma", "nemas pojma", "glup si", "glupa si",
+        "glupost", "idiot", "budala", "smiješan si", "smijesan si",
+        "bez veze", "sranje", "haha", "lol"
+    ]
+    if any(x in t for x in hostile_only) and not any(x in t for x in (
+        "jer", "zato", "zbog", "ako", "ali", "međutim", "medutim",
+        "dok", "prema", "podaci", "dokaz", "primjer", "razlog"
+    )):
+        return False
+
+    # Mora postojati barem minimalni trag tvrdnje, razloga, odnosa
+    # prema prethodnom izričaju ili konkretnog sadržaja.
+    structural = [
+        "jer", "zato", "zbog", "ako", "onda", "dok", "ali",
+        "međutim", "medutim", "nego", "stoga", "prema", "problem",
+        "pitanje", "tvrdim", "mislim", "smatram", "pokazuje",
+        "znači", "znaci", "može", "moze", "treba", "mora",
+        "ne može", "ne moze", "zašto", "zasto"
+    ]
+    has_structure = any(x in t for x in structural)
+    has_sentence = any(c in text for c in ".,;:!?()")
+    has_content_word = len(words) >= 4
+    has_number = any(c.isdigit() for c in text)
+
+    return has_structure or (has_content_word and has_sentence) or has_number
+
 def relevance_threshold(scores):
     """Prag odlučuje je li izričaj dovoljno oblikovan za ozbiljnu analizu."""
     return (
@@ -357,7 +399,7 @@ def health():
             missing = [x for x in required if x not in names]
         if missing:
             return {"status": "error", "database": "connected", "missing_tables": missing}, 500
-        return {"status": "ok", "database": "connected", "schema": "v5.7.1"}
+        return {"status": "ok", "database": "connected", "schema": "v5.7.2"}
     except Exception as exc:
         app.logger.exception("Health check failed")
         return {"status": "error", "database": "unavailable", "detail": str(exc)}, 500
@@ -571,41 +613,80 @@ def save_reply(opinion_id):
 
         # Autor može odgovoriti na vlastitu tvrdnju; svi ostali unosi su kontraargumenti.
         vrsta = "odgovor_autora" if user["ip_adresa"] == opinion["korisnik_ip"] else "kontraargument"
+
+        # PRVI STUPANJ: jeftini filter. Ako izričaj nema minimalnu
+        # logičku strukturu, ne otvaramo novo analitičko grananje i
+        # ne pokrećemo punu AKS analizu. Sirovi izričaj ipak ostaje
+        # zabilježen u povijesti rasprave.
+        if not quick_logic_gate(text):
+            conn.execute("""
+                INSERT INTO svjetionik_odgovori (misljenje_id, korisnik_ip, korisnik_pseudonim, tekst)
+                VALUES (%s,%s,%s,%s)
+            """, (opinion_id, user["ip_adresa"], user["pseudonim"], text))
+            conn.execute("""
+                INSERT INTO svjetionik_ai_dogadaji (misljenje_id, model, vrsta, ulaz, izlaz)
+                VALUES (%s,'aks-filter','filter_kritike',%s,%s)
+            """, (
+                opinion_id,
+                Jsonb({"tekst": text, "vrsta": vrsta, "verzija_kljuca": ANALITICKI_KLJUC_VERZIJA}),
+                Jsonb({"status": "nedovoljno_oblikovano", "grananje": False,
+                       "obrazlozenje": "Izričaj nije dosegnuo minimalnu logičku strukturu za analitičko grananje."})
+            ))
+            flash("Izričaj je zabilježen u raspravi, ali nije dovoljno oblikovan za analizu.", "error")
+            return redirect(request.referrer or url_for("index"))
+
+        # DRUGI STUPANJ: tek sada pokrećemo punu AKS analizu.
         scores = analyze(text, {"title": opinion["tema_naziv"], "question": opinion["tvrdnja"], "ai_criteria": "Analitički ključ Svjetionika."}, previous_text=opinion["tvrdnja"])
         relevant = relevance_threshold(scores)
         status = "relevantno" if relevant else "nedovoljno_oblikovano"
         overall = analysis_average(scores)
 
-        k = conn.execute("""
-            INSERT INTO svjetionik_kritike
-            (misljenje_id, korisnik_ip, korisnik_pseudonim, vrsta, tekst, status_analize)
-            VALUES (%s,%s,%s,%s,%s,%s) RETURNING id
-        """, (opinion_id, user["ip_adresa"], user["pseudonim"], vrsta, text, status)).fetchone()
+        # Ako prođe punu provjeru, tek tada postaje čvor analitičkog grananja.
+        if relevant:
+            k = conn.execute("""
+                INSERT INTO svjetionik_kritike
+                (misljenje_id, korisnik_ip, korisnik_pseudonim, vrsta, tekst, status_analize)
+                VALUES (%s,%s,%s,%s,%s,%s) RETURNING id
+            """, (opinion_id, user["ip_adresa"], user["pseudonim"], vrsta, text, status)).fetchone()
 
-        conn.execute("""
-            INSERT INTO svjetionik_analize_kritika
-            (kritika_id, model, verzija_modela, jasnoca, logika, utemeljenost,
-             pretpostavke, provjerljivost, ukupna_ocjena, prag_relevantnosti,
-             obrazlozenje, sirovi_rezultat)
-            VALUES (%s,'heuristika','v5.7',%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            k["id"], scores["jasnoća"], scores["logika"], scores["dokazi"],
-            scores["pretpostavke"], scores["provjerljivost"], overall, relevant,
-            "Ista početna logika vrednovanja koristi se za tvrdnju i kritiku. Prag relevantnosti ne znači da je tekst istinit ili netočan.",
-            Jsonb({**scores, "prag_relevantnosti": relevant, "analiticki_kljuc": ANALITICKI_KLJUC_NAZIV, "verzija_kljuca": ANALITICKI_KLJUC_VERZIJA})
-        ))
+            conn.execute("""
+                INSERT INTO svjetionik_analize_kritika
+                (kritika_id, model, verzija_modela, jasnoca, logika, utemeljenost,
+                 pretpostavke, provjerljivost, ukupna_ocjena, prag_relevantnosti,
+                 obrazlozenje, sirovi_rezultat)
+                VALUES (%s,'heuristika','AKS-1.0',%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                k["id"], scores["jasnoća"], scores["logika"], scores["dokazi"],
+                scores["pretpostavke"], scores["provjerljivost"], overall, True,
+                "Izričaj je prošao minimalni prag i može postati dio analitičkog grananja teme.",
+                Jsonb({**scores, "prag_relevantnosti": True, "analiticki_kljuc": ANALITICKI_KLJUC_NAZIV, "verzija_kljuca": ANALITICKI_KLJUC_VERZIJA})
+            ))
 
-        # Zadržavamo stari zapis radi kompatibilnosti s V5.x prikazima, ali nova
-        # analitička baza koristi svjetionik_kritike i svjetionik_analize_kritika.
-        conn.execute("""
-            INSERT INTO svjetionik_odgovori (misljenje_id, korisnik_ip, korisnik_pseudonim, tekst)
-            VALUES (%s,%s,%s,%s)
-        """, (opinion_id, user["ip_adresa"], user["pseudonim"], text))
+            # Kompatibilnost sa starim V5.x prikazima.
+            conn.execute("""
+                INSERT INTO svjetionik_odgovori (misljenje_id, korisnik_ip, korisnik_pseudonim, tekst)
+                VALUES (%s,%s,%s,%s)
+            """, (opinion_id, user["ip_adresa"], user["pseudonim"], text))
 
-    if relevant:
-        flash("Kritika je spremljena i analitički vrednovana.", "success")
-    else:
-        flash("Kritika je spremljena, ali nije dovoljno oblikovana za analizu.", "error")
+            flash("Kritika je spremljena i otvorila je novo analitičko grananje.", "success")
+        else:
+            # Prošao je jeftini filter, ali nije prošao puni prag.
+            # Ne stvaramo čvor u svjetionik_kritike i ne spremamo dubinsku
+            # analizu kao aktivno grananje. Sirovi tekst ostaje evidentiran.
+            conn.execute("""
+                INSERT INTO svjetionik_odgovori (misljenje_id, korisnik_ip, korisnik_pseudonim, tekst)
+                VALUES (%s,%s,%s,%s)
+            """, (opinion_id, user["ip_adresa"], user["pseudonim"], text))
+            conn.execute("""
+                INSERT INTO svjetionik_ai_dogadaji (misljenje_id, model, vrsta, ulaz, izlaz)
+                VALUES (%s,'aks-filter','analiza_praga',%s,%s)
+            """, (
+                opinion_id, Jsonb({"tekst": text, "vrsta": vrsta, "verzija_kljuca": ANALITICKI_KLJUC_VERZIJA}),
+                Jsonb({**scores, "prag_relevantnosti": False, "grananje": False,
+                       "obrazlozenje": "Izričaj je prošao brzi filter, ali nije dosegnuo minimum za analitičko grananje."})
+            ))
+            flash("Izričaj je zabilježen u raspravi, ali nije dovoljno oblikovan za analizu.", "error")
+
     return redirect(request.referrer or url_for("index"))
 
 
