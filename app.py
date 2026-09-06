@@ -258,7 +258,7 @@ def health():
             missing = [x for x in required if x not in names]
         if missing:
             return {"status": "error", "database": "connected", "missing_tables": missing}, 500
-        return {"status": "ok", "database": "connected", "schema": "v5.6.10"}
+        return {"status": "ok", "database": "connected", "schema": "v5.6.11"}
     except Exception as exc:
         app.logger.exception("Health check failed")
         return {"status": "error", "database": "unavailable", "detail": str(exc)}, 500
@@ -280,6 +280,8 @@ def index():
             SELECT m.id, m.tema_naziv, m.tvrdnja, m.korisnik_pseudonim, m.stvoreno_at,
                    (SELECT COUNT(*) FROM svjetionik_odgovori r WHERE r.misljenje_id=m.id) AS reply_count
             FROM svjetionik_misljenja m
+            JOIN teme t ON t.id=m.tema_id
+            WHERE COALESCE(t.aktivna, TRUE)=TRUE
             ORDER BY m.id DESC
             LIMIT 12
         """).fetchall()
@@ -460,7 +462,12 @@ def save_reply(opinion_id):
 @app.get("/opinion/<int:opinion_id>")
 def opinion_detail(opinion_id):
     with db() as conn:
-        m = conn.execute("SELECT * FROM svjetionik_misljenja WHERE id=%s", (opinion_id,)).fetchone()
+        m = conn.execute("""
+            SELECT m.*
+            FROM svjetionik_misljenja m
+            JOIN teme t ON t.id=m.tema_id
+            WHERE m.id=%s AND COALESCE(t.aktivna, TRUE)=TRUE
+        """, (opinion_id,)).fetchone()
         if not m:
             abort(404)
         analyses = conn.execute("""
@@ -690,17 +697,101 @@ def admin_topic_edit_v54(topic_id):
         return redirect(url_for("admin_v54"))
 
 
+def delete_topic_content(conn, topic_id):
+    """Obriši sva mišljenja teme; povezani odgovori, analize, predviđanja,
+    verzije i AI događaji brišu se putem ON DELETE CASCADE veza.
+    Ne briše samu temu niti njezin urednički sadržaj.
+    """
+    row = conn.execute(
+        "SELECT naziv FROM teme WHERE id=%s", (topic_id,)
+    ).fetchone()
+    if not row:
+        abort(404)
+
+    count = conn.execute(
+        "SELECT COUNT(*) AS n FROM svjetionik_misljenja WHERE tema_id=%s",
+        (topic_id,)
+    ).fetchone()["n"]
+
+    conn.execute(
+        "DELETE FROM svjetionik_misljenja WHERE tema_id=%s",
+        (topic_id,)
+    )
+    app.logger.info(
+        "Obrisan sadržaj teme: id=%s naziv=%r mišljenja=%s",
+        topic_id, row["naziv"], count
+    )
+    return row["naziv"], count
+
+
 @app.post("/admin/topic/<int:topic_id>/toggle")
 def admin_topic_toggle_v54(topic_id):
     if not admin_required_v54():
         return admin_redirect_v54()
+    if not validate_csrf():
+        abort(400)
     try:
         with db() as conn:
-            conn.execute("UPDATE teme SET aktivna=NOT COALESCE(aktivna,FALSE) WHERE id=%s", (topic_id,))
-            conn.commit()
-        flash("Status teme je promijenjen.", "success")
+            topic = conn.execute(
+                "SELECT id, naziv, COALESCE(aktivna,FALSE) AS aktivna FROM teme WHERE id=%s",
+                (topic_id,)
+            ).fetchone()
+            if not topic:
+                abort(404)
+
+            was_active = bool(topic["aktivna"])
+            if was_active:
+                # Deaktivacija automatski uklanja sva javna mišljenja teme.
+                # Povezani odgovori i ostali izvedeni zapisi nestaju kaskadno.
+                _, deleted = delete_topic_content(conn, topic_id)
+                conn.execute(
+                    "UPDATE teme SET aktivna=FALSE WHERE id=%s",
+                    (topic_id,)
+                )
+                conn.commit()
+                flash(
+                    f"Tema je deaktivirana. Uklonjeno je {deleted} mišljenja i pripadajući sadržaj.",
+                    "success"
+                )
+            else:
+                conn.execute(
+                    "UPDATE teme SET aktivna=TRUE WHERE id=%s",
+                    (topic_id,)
+                )
+                conn.commit()
+                flash("Tema je ponovno aktivirana. Novi sadržaj može se objavljivati.", "success")
     except Exception as exc:
+        app.logger.exception("Promjena statusa teme nije uspjela: %s", exc)
         flash(f"Greška: {exc}", "error")
+    return redirect(url_for("admin_v54"))
+
+@app.post("/admin/topic/<int:topic_id>/delete-content")
+def admin_topic_delete_content_v54(topic_id):
+    if not admin_required_v54():
+        return admin_redirect_v54()
+    if not validate_csrf():
+        abort(400)
+    try:
+        with db() as conn:
+            topic = conn.execute(
+                "SELECT id, naziv, COALESCE(aktivna,FALSE) AS aktivna FROM teme WHERE id=%s",
+                (topic_id,)
+            ).fetchone()
+            if not topic:
+                abort(404)
+            if topic["aktivna"]:
+                flash("Sadržaj se može brisati samo kada je tema neaktivna.", "error")
+                return redirect(url_for("admin_v54"))
+
+            name, deleted = delete_topic_content(conn, topic_id)
+            conn.commit()
+            flash(
+                f"Sadržaj teme '{name}' je obrisan. Uklonjeno je {deleted} mišljenja i pripadajući sadržaj.",
+                "success"
+            )
+    except Exception as exc:
+        app.logger.exception("Brisanje sadržaja teme nije uspjelo: %s", exc)
+        flash(f"Greška pri brisanju sadržaja: {exc}", "error")
     return redirect(url_for("admin_v54"))
 
 @app.get("/admin/opinions")
